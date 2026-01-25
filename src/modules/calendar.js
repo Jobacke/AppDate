@@ -310,7 +310,11 @@ export function subscribeCalendar() {
     // App Events - Reading/Writing to ROOT collection "app_events"
     appUnsubscribe = db.collection('app_events')
         .onSnapshot(snapshot => {
-            const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), source: 'app' }));
+            const events = snapshot.docs.map(doc => {
+                const data = doc.data();
+                // IMPORTANT: preserve 'imported' source if present! Default to 'app' only if missing.
+                return { id: doc.id, ...data, source: data.source || 'app' };
+            });
             state.events.app = events;
             updateCalendarView();
         }, err => console.log("App sync error", err));
