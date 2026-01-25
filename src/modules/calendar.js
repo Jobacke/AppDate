@@ -80,7 +80,8 @@ function jumpToDate(dateStr) {
 // === ICS Import ===
 
 async function handleIcsUpload(input) {
-    const file = input.files[0];
+    console.log("Input changed, files:", input.files);
+    const file = input.files && input.files[0];
     if (!file) return;
 
     try {
