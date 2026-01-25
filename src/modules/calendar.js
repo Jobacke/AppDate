@@ -685,3 +685,38 @@ function closeEditAppointmentModal() {
     document.getElementById('editAppointmentModal').classList.remove('flex');
     state.editingAppointmentId = null;
 }
+
+async function deleteSeries() {
+    // Alias to standard delete (which deletes the main doc)
+    deleteAppointment();
+}
+
+async function deleteCurrentInstance() {
+    const id = state.editingAppointmentId;
+    const dateStr = state.editingInstanceDate;
+
+    if (!id || !dateStr) return;
+
+    // We assume user clicked "Nur diesen", so we proceed.
+
+    try {
+        const evt = state.events.app.find(e => e.id === id);
+        if (!evt) throw new Error("Event not found");
+
+        const excluded = evt.excludedDates || [];
+        if (!excluded.includes(dateStr)) {
+            excluded.push(dateStr);
+        }
+
+        await db.collection('app_events').doc(id).update({
+            excludedDates: excluded,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log(`Removed instance ${dateStr} from series ${id}`);
+        closeEditAppointmentModal();
+    } catch (e) {
+        console.error(e);
+        alert("Fehler beim Löschen der Instanz: " + e.message);
+    }
+}
