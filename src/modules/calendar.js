@@ -594,25 +594,30 @@ async function saveAppointmentEdit() {
 
 async function deleteAppointment() {
     const id = state.editingAppointmentId;
-    console.log("Attempting delete for ID:", id);
+    console.log("Start delete flow for ID:", id);
 
-    if (!id || !confirm('Termin wirklich löschen?')) return;
+    if (!id || !confirm('Termin wirklich löschen?')) {
+        console.log("Delete cancelled or no ID.");
+        return;
+    }
 
-    // Find event to know which collection to delete from
-    const appEvent = state.events.app.find(e => e.id === id);
-    const exchangeEvent = state.events.exchange.find(e => e.id === id);
+    console.log("User confirmed delete.");
 
-    console.log("Found in App:", !!appEvent, "Found in Exchange:", !!exchangeEvent);
-
-    const collectionName = exchangeEvent ? 'exchange_events' : 'app_events';
-    console.log("Target Collection:", collectionName);
-
+    // Bruteforce: Delete from BOTH collections to be sure.
+    // Deleting a non-existent doc is not an error in Firestore.
     try {
-        await db.collection(collectionName).doc(id).delete();
-        console.log("Delete success");
+        console.log("Deleting from app_events...");
+        const p1 = db.collection('app_events').doc(id).delete();
+
+        console.log("Deleting from exchange_events...");
+        const p2 = db.collection('exchange_events').doc(id).delete();
+
+        await Promise.all([p1, p2]);
+
+        console.log("Deleted from DB (bruteforce check both tables). Success.");
         closeEditAppointmentModal();
     } catch (e) {
-        console.error("Delete failed:", e);
+        console.error("Delete Error:", e);
         alert('❌ Fehler beim Löschen: ' + e.message);
     }
 }
