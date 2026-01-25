@@ -80,53 +80,63 @@ function jumpToDate(dateStr) {
 // === ICS Import ===
 
 async function handleIcsUpload(input) {
-    console.log("Input changed, files:", input.files);
-    const file = input.files && input.files[0];
-    if (!file) return;
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+
+    console.log("Reading file:", file.name);
 
     try {
         const text = await file.text();
+        console.log("File content length:", text.length);
+
         const events = parseICS(text);
+        console.log("Found events:", events.length, events);
 
         if (events.length === 0) {
-            alert('Keine gültigen Termine in der Datei gefunden.');
+            alert('Keine Termine erkannt. Format evtl. nicht unterstützt.\n(Schau in die Konsole für Details)');
             return;
         }
 
         if (!confirm(`${events.length} Termine gefunden. Importieren?`)) return;
 
-        // Batch upload to Firestore (app_events)
         const batch = db.batch();
         const collectionRef = db.collection('app_events');
 
+        let count = 0;
         events.forEach(evt => {
             const docRef = collectionRef.doc();
             batch.set(docRef, {
                 ...evt,
                 source: 'imported',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+                createdAt: new Date()
+            }, { merge: true });
+            count++;
         });
 
         await batch.commit();
-        alert('✅ Import erfolgreich!');
-        input.value = ''; // Reset input
+        console.log("Batch commit success");
+        alert(`✅ ${count} Termine importiert!`);
+        input.value = '';
 
     } catch (e) {
-        console.error(e);
-        alert('Fehler beim Importieren der ICS Datei.');
+        console.error("Import Error:", e);
+        alert('Fehler: ' + e.message);
     }
 }
 
 function parseICS(icsContent) {
     const events = [];
+    // Handle different line endings including mixed
     const lines = icsContent.split(/\r\n|\n|\r/);
     let currentEvent = null;
 
     const parseDate = (val) => {
         if (!val) return null;
         try {
-            const cleanVal = val.split(';')[0]; // Remove params if any
+            // Remove timezone params if present (e.g., ;TZID=Europe/Berlin:2023...)
+            const parts = val.split(':');
+            const cleanVal = parts[parts.length - 1];
+
             const year = cleanVal.substring(0, 4);
             const month = cleanVal.substring(4, 6);
             const day = cleanVal.substring(6, 8);
@@ -143,25 +153,26 @@ function parseICS(icsContent) {
     };
 
     lines.forEach(line => {
-        if (line.startsWith('BEGIN:VEVENT')) {
+        line = line.trim();
+        if (line === 'BEGIN:VEVENT') {
             currentEvent = {};
-        } else if (line.startsWith('END:VEVENT')) {
-            if (currentEvent && currentEvent.title && currentEvent.start) {
+        } else if (line === 'END:VEVENT') {
+            if (currentEvent && (currentEvent.title || currentEvent.summary) && currentEvent.start) {
+                if (!currentEvent.title && currentEvent.summary) currentEvent.title = currentEvent.summary;
                 events.push(currentEvent);
             }
             currentEvent = null;
         } else if (currentEvent) {
-            // Basic parsing
-            if (line.startsWith('SUMMARY:')) currentEvent.title = line.substring(8);
-            if (line.startsWith('DTSTART')) {
-                const val = line.split(':')[1];
-                currentEvent.start = parseDate(val);
-                if (line.includes('VALUE=DATE')) currentEvent.isAllDay = true;
+            if (line.startsWith('SUMMARY:')) currentEvent.title = line.substring(8); // Simple parsing
+            // Handle SUMMARY;LANGUAGE=de:Titel format
+            if (line.startsWith('SUMMARY;')) {
+                const parts = line.split(':');
+                if (parts.length > 1) currentEvent.title = parts.slice(1).join(':');
             }
-            if (line.startsWith('DTEND')) {
-                const val = line.split(':')[1];
-                currentEvent.end = parseDate(val);
-            }
+
+            if (line.startsWith('DTSTART')) currentEvent.start = parseDate(line);
+            if (line.startsWith('DTEND')) currentEvent.end = parseDate(line);
+
             if (line.startsWith('LOCATION:')) currentEvent.location = line.substring(9);
             if (line.startsWith('DESCRIPTION:')) currentEvent.description = line.substring(12);
         }
@@ -234,6 +245,8 @@ function renderCalendar() {
         groups[date].push(e);
     });
 
+    state.groupedEvents = groups;
+
     const dates = Object.keys(groups).sort();
     let html = '';
 
@@ -242,19 +255,23 @@ function renderCalendar() {
         const dayName = new Date(date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const isToday = date === new Date().toISOString().split('T')[0];
 
-        html += `<div class="mb-6">
-            <div class="sticky top-0 bg-br-900/95 backdrop-blur py-2 border-b border-br-700 mb-2 z-10 flex items-center gap-2">
-                <h3 class="font-bold ${isToday ? 'text-blue-400' : 'text-br-200'}">${isToday ? 'Heute, ' : ''}${dayName}</h3>
+        html += `<div id="date-${date}" class="mb-6 scroll-mt-48 transition-colors duration-500 rounded-lg">
+            <div class="sticky top-[7.5rem] bg-br-900/95 backdrop-blur py-2 border-b border-br-700 mb-2 z-10 flex items-center gap-2 shadow-md">
+                <h3 class="font-bold ${isToday ? 'text-blue-400' : 'text-br-200'} text-lg">${isToday ? 'Heute, ' : ''}${dayName}</h3>
             </div>
-            <div class="space-y-2">`;
+            <div class="space-y-3">`;
 
         groupEvents.forEach(evt => {
-            const isApp = evt.source === 'app';
+            const isApp = evt.source === 'app' || evt.source === 'imported'; // Treat imported as app-editable
+            // Note: Imported events usually default to 'imported' source, let's treat them as app (editable) visually if desired, or distinct.
+            // For now, let's make them editable:
+            const editable = isApp || evt.source === 'imported';
+
             const displayTime = formatEventTime(evt);
 
-            html += `<div class="p-4 rounded-xl border ${isApp ? 'bg-br-800 border-br-600 hover:border-blue-500 cursor-pointer' : 'bg-br-800/50 border-br-700'} transition-all relative overflow-hidden group"
-                ${isApp ? `onclick="editAppointment('${evt.id}')"` : ''}>
-                ${isApp ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-blue-500"></div>' : '<div class="absolute right-0 top-0 bottom-0 w-1 bg-purple-500"></div>'}
+            html += `<div class="p-4 rounded-xl border ${editable ? 'bg-br-800 border-br-600 hover:border-blue-500 cursor-pointer' : 'bg-br-800/50 border-br-700'} transition-all relative overflow-hidden group"
+                ${editable ? `onclick="editAppointment('${evt.id}')"` : ''}>
+                ${editable ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-blue-500"></div>' : '<div class="absolute right-0 top-0 bottom-0 w-1 bg-purple-500"></div>'}
                 <div class="flex justify-between items-start">
                     <div>
                         <div class="font-medium text-white mb-1">${evt.title || evt.subject || 'Termin'}</div>
@@ -263,7 +280,7 @@ function renderCalendar() {
                             ${evt.location ? `<span class="flex items-center gap-1">📍 ${evt.location}</span>` : ''}
                         </div>
                     </div>
-                    ${isApp ? '' : '<span class="text-[10px] bg-purple-900/50 text-purple-300 px-2 py-1 rounded border border-purple-800">Exchange</span>'}
+                    ${editable ? '' : '<span class="text-[10px] bg-purple-900/50 text-purple-300 px-2 py-1 rounded border border-purple-800">Exchange</span>'}
                 </div>
                 ${evt.description ? `<div class="mt-2 text-xs text-br-400 line-clamp-2">${evt.description}</div>` : ''}
             </div>`;
@@ -312,8 +329,18 @@ function openAddAppointmentModal() {
 }
 
 function editAppointment(id) {
-    const evt = state.events.app.find(e => e.id === id);
+    // Search in both lists
+    let evt = state.events.app.find(e => e.id === id);
+    if (!evt) evt = state.events.exchange.find(e => e.id === id); // Exchange usually not editable but safeguard
+
     if (!evt) return;
+
+    // Check if source allowed (only app or imported)
+    if (evt.source !== 'app' && evt.source !== 'imported') {
+        // Maybe show details only? For now, prevent edit.
+        return;
+    }
+
     state.editingAppointmentId = id;
     const start = new Date(evt.start);
     const end = new Date(evt.end);
@@ -350,7 +377,7 @@ async function saveAppointmentEdit() {
     const startIso = `${date}T${startTime}:00`;
     const endIso = `${date}T${endTime}:00`;
 
-    const data = { title, start: startIso, end: endIso, location, description, isAllDay, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    const data = { title, start: startIso, end: endIso, location, description, isAllDay, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), source: 'app' };
 
     try {
         if (id) {
