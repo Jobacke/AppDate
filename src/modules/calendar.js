@@ -111,17 +111,30 @@ async function handleIcsUpload(input) {
                 return;
             }
 
-            if (!confirm(`${events.length} zukünftige Termine gefunden. Importieren? (Das kann einen Moment dauern)`)) return;
+            if (!confirm(`${events.length} zukünftige Termine gefunden. Importieren?\n⚠️ Alle zuvor importierten Termine werden dabei überschrieben!`)) return;
 
             // Import logic...
             const collectionRef = db.collection('app_events');
 
-            // Chunking logic (kept for safety)
+            // 1. DELETE OLD IMPORTED EVENTS
+            console.log("Deleting old imported events...");
+            const oldEventsSnapshot = await collectionRef.where('source', '==', 'imported').get();
+
+            if (!oldEventsSnapshot.empty) {
+                const deleteBatch = db.batch();
+                oldEventsSnapshot.docs.forEach(doc => {
+                    deleteBatch.delete(doc.ref);
+                });
+                await deleteBatch.commit();
+                console.log(`Deleted ${oldEventsSnapshot.size} old events.`);
+            }
+
+            // 2. IMPORT NEW EVENTS (Chunking logic)
             const CHUNK_SIZE = 400;
             const chunks = [];
             for (let i = 0; i < events.length; i += CHUNK_SIZE) chunks.push(events.slice(i, i + CHUNK_SIZE));
 
-            console.log(`Uploading in ${chunks.length} batches...`);
+            console.log(`Uploading new events in ${chunks.length} batches...`);
 
             let totalUploaded = 0;
             for (const chunk of chunks) {
@@ -130,9 +143,9 @@ async function handleIcsUpload(input) {
                     const docRef = collectionRef.doc();
                     batch.set(docRef, {
                         ...evt,
-                        source: 'imported',
+                        source: 'imported', // Mark as imported so we can delete them next time
                         createdAt: new Date()
-                    }, { merge: true });
+                    });
                 });
                 await batch.commit();
                 totalUploaded += chunk.length;
@@ -140,7 +153,7 @@ async function handleIcsUpload(input) {
             }
 
             console.log("All batches committed.");
-            alert(`✅ ${totalUploaded} Termine erfolgreich importiert!`);
+            alert(`✅ ${totalUploaded} Termine erfolgreich importiert (alte gelöscht)!`);
             input.value = ''; // Reset input here
         }, 100);
 
