@@ -85,6 +85,13 @@ function jumpToDate(dateStr) {
 
 async function handleIcsUpload(input) {
     if (!input.files || !input.files[0]) return;
+
+    // Move confirm here (Sync/Direct context) to avoid blocking
+    if (!confirm('⚠️ ACHTUNG: Dies löscht ALLE bestehenden Termine (App & Exchange) und importiert die Datei neu.\n\nWirklich fortfahren?')) {
+        input.value = '';
+        return;
+    }
+
     const file = input.files[0];
 
     console.log("Reading file:", file.name);
@@ -119,11 +126,7 @@ async function handleIcsUpload(input) {
                     return;
                 }
 
-                if (!confirm('⚠️ ACHTUNG: Dies löscht ALLE bestehenden Termine (App & Exchange) und importiert die Datei neu.\n\nWirklich fortfahren?')) {
-                    input.value = ''; // Reset file input so change event triggers next time
-                    return;
-                }
-                console.log("User confirmed Reset & Import.");
+                console.log("User confirmed Reset & Import (Pre-Check passed).");
 
                 const collectionRef = db.collection('app_events');
 
