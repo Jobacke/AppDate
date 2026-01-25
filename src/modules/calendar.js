@@ -14,22 +14,20 @@ let exchangeUnsubscribe = null;
 let appUnsubscribe = null;
 
 export function subscribeCalendar() {
-    if (!state.currentUser) return;
-
     unsubscribeCalendar(); // Clear previous
 
     state.events = { exchange: [], app: [] };
 
-    // Exchange Events
-    exchangeUnsubscribe = db.collection('users').doc(state.currentUser.uid).collection('exchange_events')
+    // Exchange Events - Reading from ROOT collection "exchange_events"
+    exchangeUnsubscribe = db.collection('exchange_events')
         .onSnapshot(snapshot => {
             const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), source: 'exchange' }));
             state.events.exchange = events;
             updateCalendarView();
         }, err => console.log("Exchange sync error", err));
 
-    // App Events
-    appUnsubscribe = db.collection('users').doc(state.currentUser.uid).collection('app_events')
+    // App Events - Reading/Writing to ROOT collection "app_events"
+    appUnsubscribe = db.collection('app_events')
         .onSnapshot(snapshot => {
             const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), source: 'app' }));
             state.events.app = events;
@@ -199,10 +197,10 @@ async function saveAppointmentEdit() {
 
     try {
         if (id) {
-            await db.collection('users').doc(state.currentUser.uid).collection('app_events').doc(id).update(data);
+            await db.collection('app_events').doc(id).update(data);
         } else {
             data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-            await db.collection('users').doc(state.currentUser.uid).collection('app_events').add(data);
+            await db.collection('app_events').add(data);
         }
         closeEditAppointmentModal();
     } catch (e) {
@@ -214,7 +212,7 @@ async function saveAppointmentEdit() {
 async function deleteAppointment() {
     if (!state.editingAppointmentId || !confirm('Termin wirklich löschen?')) return;
     try {
-        await db.collection('users').doc(state.currentUser.uid).collection('app_events').doc(state.editingAppointmentId).delete();
+        await db.collection('app_events').doc(state.editingAppointmentId).delete();
         closeEditAppointmentModal();
     } catch (e) {
         alert('❌ Fehler beim Löschen');
