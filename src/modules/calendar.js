@@ -104,58 +104,69 @@ async function handleIcsUpload(input) {
 
         console.log(`Found ${eventsRaw.length} total events. filtered to ${events.length} future events.`);
 
-        // Use timeout to detach from the file input event stack, preventing UI glitches
+        // Use timeout to detach from UI stack
         setTimeout(async () => {
-            if (events.length === 0) {
-                alert(`Keine zukünftigen Termine gefunden (von ${eventsRaw.length} geprüften).`);
-                return;
-            }
+            try {
+                // Checkpoint 1
+                console.log("Starting import process inside timeout...");
 
-            if (!confirm(`${events.length} zukünftige Termine gefunden. Importieren?\n⚠️ Alle zuvor importierten Termine und Synchronisierungen werden gelöscht (Reset).`)) return;
+                if (events.length === 0) {
+                    alert(`Keine zukünftigen Termine gefunden.`);
+                    return;
+                }
 
-            // Import logic...
-            const collectionRef = db.collection('app_events');
+                // Temporary removal of confirm to test execution flow
+                // if(!confirm(...)) return; 
+                console.log("Skipped confirm dialog for debugging. Proceeding...");
 
-            // --- 1. CLEANUP OLD DATA ---
-            console.log("Cleaning up old data...");
+                const collectionRef = db.collection('app_events');
 
-            // A) Delete old 'imported' events from app_events
-            const oldImportSnapshot = await collectionRef.where('source', '==', 'imported').get();
-            await deleteInBatches(db, oldImportSnapshot.docs);
-            console.log(`Deleted ${oldImportSnapshot.size} old imported events.`);
+                // --- 1. CLEANUP OLD DATA ---
+                console.log("Cleaning up old data...");
 
-            // B) Delete ALL 'exchange_events' (email updates) to prevent duplicates
-            const exchangeSnapshot = await db.collection('exchange_events').get();
-            await deleteInBatches(db, exchangeSnapshot.docs);
-            console.log(`Deleted ${exchangeSnapshot.size} old exchange updates.`);
+                // A) Delete old 'imported' events from app_events
+                const oldImportSnapshot = await collectionRef.where('source', '==', 'imported').get();
+                console.log(`Found ${oldImportSnapshot.size} old imported events to delete.`);
+                await deleteInBatches(db, oldImportSnapshot.docs);
+                console.log("Deleted old imported events.");
+
+                // B) Delete ALL 'exchange_events'
+                const exchangeSnapshot = await db.collection('exchange_events').get();
+                console.log(`Found ${exchangeSnapshot.size} old exchange events to delete.`);
+                await deleteInBatches(db, exchangeSnapshot.docs);
+                console.log("Deleted old exchange events.");
 
 
-            // --- 2. IMPORT NEW EVENTS ---
-            const CHUNK_SIZE = 400;
-            const chunks = [];
-            for (let i = 0; i < events.length; i += CHUNK_SIZE) chunks.push(events.slice(i, i + CHUNK_SIZE));
+                // --- 2. IMPORT NEW EVENTS ---
+                console.log("Starting upload of new events...");
+                const CHUNK_SIZE = 400;
+                const chunks = [];
+                for (let i = 0; i < events.length; i += CHUNK_SIZE) chunks.push(events.slice(i, i + CHUNK_SIZE));
 
-            console.log(`Uploading new events in ${chunks.length} batches...`);
-
-            let totalUploaded = 0;
-            for (const chunk of chunks) {
-                const batch = db.batch();
-                chunk.forEach(evt => {
-                    const docRef = collectionRef.doc();
-                    batch.set(docRef, {
-                        ...evt,
-                        source: 'imported', // Mark as imported
-                        createdAt: new Date()
+                let totalUploaded = 0;
+                for (const chunk of chunks) {
+                    const batch = db.batch();
+                    chunk.forEach(evt => {
+                        const docRef = collectionRef.doc();
+                        batch.set(docRef, {
+                            ...evt,
+                            source: 'imported',
+                            createdAt: new Date()
+                        });
                     });
-                });
-                await batch.commit();
-                totalUploaded += chunk.length;
-                console.log(`Uploaded ${totalUploaded}/${events.length}`);
-            }
+                    await batch.commit();
+                    totalUploaded += chunk.length;
+                    console.log(`Uploaded batch. Total: ${totalUploaded}`);
+                }
 
-            console.log("All batches committed.");
-            alert(`✅ ${totalUploaded} Termine erfolgreich importiert (Datenbank bereinigt)!`);
-            input.value = ''; // Reset input here
+                console.log("All done.");
+                alert(`✅ ${totalUploaded} Termine erfolgreich importiert!`);
+                input.value = '';
+
+            } catch (innerError) {
+                console.error("Critical Error inside Import Timeout:", innerError);
+                alert("Kritischer Import-Fehler: " + innerError.message);
+            }
         }, 100);
 
     } catch (e) {
