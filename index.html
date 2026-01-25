@@ -143,17 +143,32 @@
         </div>
       </div>
 
-      <div class="flex gap-3 mt-6">
-        <button onclick="deleteAppointment()" id="btnDeleteAppt"
-          class="p-3 bg-red-900/50 hover:bg-red-900 text-red-300 rounded-lg hidden transition-colors">
-          🗑️
+      <div class="flex justify-between mt-6">
+        <!-- Standard Delete (for non-recurring) -->
+        <button id="btnDeleteAppt" onclick="deleteAppointment()"
+          class="p-3 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 hidden transition-colors">
+          <i class="ph-trash text-xl"></i>
         </button>
-        <div class="flex-1 flex gap-3">
+
+        <!-- Recurring Delete Options (hidden by default) -->
+        <div id="btnGroupRecurringDelete" class="hidden flex gap-2">
+          <button onclick="deleteCurrentInstance()"
+            class="px-4 py-2 bg-red-500/10 text-red-400 text-sm rounded-lg hover:bg-red-500/20 transition-colors border border-red-500/20"
+            title="Nur diesen Termin löschen">
+            Nur diesen
+          </button>
+          <button onclick="deleteSeries()"
+            class="px-4 py-2 bg-red-900/20 text-red-700 text-sm rounded-lg hover:bg-red-900/40 transition-colors border border-red-900/20"
+            title="Ganze Serie löschen">
+            Ganze Serie
+          </button>
+        </div>
+
+        <div class="flex gap-2 ml-auto">
           <button onclick="closeEditAppointmentModal()"
-            class="flex-1 py-3 bg-br-700 hover:bg-br-600 rounded-lg text-sm transition-colors">Abbrechen</button>
+            class="px-4 py-2 text-br-300 hover:text-white transition-colors">Abbrechen</button>
           <button onclick="saveAppointmentEdit()"
-            class="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium text-white transition-colors">💾
-            Speichern</button>
+            class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20">Speichern</button>
         </div>
       </div>
     </div>

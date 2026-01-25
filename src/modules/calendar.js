@@ -325,6 +325,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+// Export new Delete functions
+window.deleteCurrentInstance = deleteCurrentInstance;
+window.deleteSeries = deleteSeries;
+
 function updateCalendarView() {
     // 1. Deduplication & Expansion
     const expandedMap = new Map(); // Key: "originalId|date" -> event
@@ -348,15 +352,27 @@ function updateCalendarView() {
         let currentDate = new Date(startDate);
         const duration = new Date(evt.end).getTime() - startDate.getTime();
 
+        // Lock Original Time to prevent DST Drift
+        const origH = String(startDate.getHours()).padStart(2, '0');
+        const origMin = String(startDate.getMinutes()).padStart(2, '0');
+
         // Safety: Max 500 instances
         while (currentDate <= endDateLimit && instances < 500) {
             const y = currentDate.getFullYear();
             const m = String(currentDate.getMonth() + 1).padStart(2, '0');
             const d = String(currentDate.getDate()).padStart(2, '0');
-            const h = String(currentDate.getHours()).padStart(2, '0');
-            const min = String(currentDate.getMinutes()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${d}`; // YYYY-MM-DD
 
-            const newStartIso = `${y}-${m}-${d}T${h}:${min}:00`;
+            // Check Exclusions (Single Delete)
+            if (evt.excludedDates && evt.excludedDates.includes(dateStr)) {
+                // Skip but increment
+                incrementDate(currentDate, recurrence, interval);
+                instances++;
+                continue;
+            }
+
+            // Use Original Time (origH, origMin) NOT currentDate time
+            const newStartIso = `${y}-${m}-${d}T${origH}:${origMin}:00`;
             const newEndIso = new Date(new Date(newStartIso).getTime() + duration).toISOString().slice(0, 19);
 
             const instance = { ...evt, start: newStartIso, end: newEndIso, _isInstance: instances > 0 };
@@ -364,12 +380,7 @@ function updateCalendarView() {
 
             expandedMap.set(instanceKey, instance);
 
-            // Increment based on interval
-            if (recurrence === 'daily') currentDate.setDate(currentDate.getDate() + interval);
-            if (recurrence === 'weekly') currentDate.setDate(currentDate.getDate() + (7 * interval));
-            if (recurrence === 'monthly') currentDate.setMonth(currentDate.getMonth() + interval);
-            if (recurrence === 'yearly') currentDate.setFullYear(currentDate.getFullYear() + interval);
-
+            incrementDate(currentDate, recurrence, interval);
             instances++;
         }
     };
@@ -379,6 +390,13 @@ function updateCalendarView() {
 
     state.allEvents = Array.from(expandedMap.values());
     renderCalendar();
+}
+
+function incrementDate(date, recurrence, interval) {
+    if (recurrence === 'daily') date.setDate(date.getDate() + interval);
+    if (recurrence === 'weekly') date.setDate(date.getDate() + (7 * interval));
+    if (recurrence === 'monthly') date.setMonth(date.getMonth() + interval);
+    if (recurrence === 'yearly') date.setFullYear(date.getFullYear() + interval);
 }
 
 function renderCalendar() {
@@ -391,10 +409,8 @@ function renderCalendar() {
         return;
     }
 
-    // Sort
     events.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
-    // Filter >= Yesterday
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayIso = yesterday.toISOString().split('T')[0];
@@ -435,8 +451,11 @@ function renderCalendar() {
             const isRecurring = evt.recurrence && evt.recurrence !== 'none';
             const displayTime = formatEventTime(evt);
 
+            // Pass evt.start (instance start) to edit
+            const startParam = evt.start ? `'${evt.start}'` : 'null';
+
             html += `<div class="p-4 rounded-xl border ${!isExchange ? 'bg-br-800 border-br-600 hover:border-blue-500 cursor-pointer' : 'bg-br-800/50 border-br-700'} transition-all relative overflow-hidden group"
-                ${!isExchange ? `onclick="editAppointment('${evt.id}')"` : ''}>
+                ${!isExchange ? `onclick="editAppointment('${evt.id}', ${startParam})"` : ''}>
                 ${isExchange ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-purple-500"></div>' : '<div class="absolute right-0 top-0 bottom-0 w-1 bg-blue-500"></div>'}
                 <div class="flex justify-between items-start">
                     <div>
@@ -481,6 +500,7 @@ function openAddAppointmentModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     state.editingAppointmentId = null;
+    state.editingInstanceDate = null;
     document.getElementById('apptId').value = '';
     document.getElementById('apptTitle').value = '';
     document.getElementById('apptDate').value = new Date().toISOString().split('T')[0];
@@ -496,11 +516,13 @@ function openAddAppointmentModal() {
     document.getElementById('apptRecurrenceEnd').value = '';
     toggleRecurrenceInput();
 
+    // Show standard delete hidden (it's new)
     document.getElementById('btnDeleteAppt').classList.add('hidden');
+    document.getElementById('btnGroupRecurringDelete').classList.add('hidden');
     document.getElementById('modalTitleAppt').textContent = '✨ Neuer Termin';
 }
 
-function editAppointment(id) {
+function editAppointment(id, instanceStart) {
     let evt = state.events.app.find(e => e.id === id);
     if (!evt) evt = state.events.exchange.find(e => e.id === id);
 
@@ -510,14 +532,23 @@ function editAppointment(id) {
     }
 
     state.editingAppointmentId = id;
-    const start = new Date(evt.start);
-    const end = new Date(evt.end);
+    // Extract YYYY-MM-DD from instanceStart if present, else from evt.start
+    const currentStart = instanceStart || evt.start;
+    const dateStr = currentStart.split('T')[0];
+    state.editingInstanceDate = dateStr;
+
+    const start = new Date(currentStart);
+    // Use duration to calc end
+    const origStart = new Date(evt.start);
+    const origEnd = new Date(evt.end);
+    const duration = origEnd - origStart;
+    const end = new Date(start.getTime() + duration);
 
     document.getElementById('editAppointmentModal').classList.remove('hidden');
     document.getElementById('editAppointmentModal').classList.add('flex');
     document.getElementById('apptId').value = id;
     document.getElementById('apptTitle').value = evt.title;
-    document.getElementById('apptDate').value = evt.start.split('T')[0];
+    document.getElementById('apptDate').value = dateStr;
     document.getElementById('apptStart').value = start.toTimeString().substring(0, 5);
     document.getElementById('apptEnd').value = end.toTimeString().substring(0, 5);
     document.getElementById('apptLocation').value = evt.location || '';
@@ -530,7 +561,16 @@ function editAppointment(id) {
     document.getElementById('apptRecurrenceEnd').value = evt.recurrenceEnd || '';
     toggleRecurrenceInput();
 
-    document.getElementById('btnDeleteAppt').classList.remove('hidden');
+    // Toggle Buttons based on Recurrence
+    const isRecurring = evt.recurrence && evt.recurrence !== 'none';
+    if (isRecurring) {
+        document.getElementById('btnDeleteAppt').classList.add('hidden');
+        document.getElementById('btnGroupRecurringDelete').classList.remove('hidden');
+    } else {
+        document.getElementById('btnDeleteAppt').classList.remove('hidden');
+        document.getElementById('btnGroupRecurringDelete').classList.add('hidden');
+    }
+
     document.getElementById('modalTitleAppt').textContent = '✏️ Termin bearbeiten';
 }
 
