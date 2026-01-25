@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-br-900 text-white min-h-screen font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+.modal-backdrop {
+  @apply bg-black/80 backdrop-blur-sm;
+}
