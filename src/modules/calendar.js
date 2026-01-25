@@ -89,15 +89,27 @@ async function handleIcsUpload(input) {
         const text = await file.text();
         console.log("File content length:", text.length);
 
-        const events = parseICS(text);
-        console.log("Found events:", events.length, events);
+        const eventsRaw = parseICS(text);
+
+        // Filter: Only future events (from yesterday onwards)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayIso = yesterday.toISOString().split('T')[0];
+
+        const events = eventsRaw.filter(e => {
+            if (!e.start) return false;
+            const eventDate = e.start.split('T')[0];
+            return eventDate >= yesterdayIso;
+        });
+
+        console.log(`Found ${eventsRaw.length} total events. filtered to ${events.length} future events.`);
 
         if (events.length === 0) {
-            alert('Keine Termine erkannt. Format evtl. nicht unterstützt.\n(Schau in die Konsole für Details)');
+            alert(`Keine zukünftigen Termine gefunden (von ${eventsRaw.length} geprüften).`);
             return;
         }
 
-        if (!confirm(`${events.length} Termine gefunden. Importieren? (Das kann einen Moment dauern)`)) return;
+        if (!confirm(`${events.length} zukünftige Termine gefunden. Importieren? (Das kann einen Moment dauern)`)) return;
 
         const collectionRef = db.collection('app_events');
 
