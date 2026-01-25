@@ -125,20 +125,20 @@ async function handleIcsUpload(input) {
 
                 const collectionRef = db.collection('app_events');
 
-                // --- 1. CLEANUP OLD DATA ---
-                console.log("Cleaning up old data...");
+                // --- 1. CLEANUP OLD DATA (Nuclear Option) ---
+                console.log("Cleaning up ALL old data (Full Reset)...");
 
-                // A) Delete old 'imported' events from app_events
-                const oldImportSnapshot = await collectionRef.where('source', '==', 'imported').get();
-                console.log(`Found ${oldImportSnapshot.size} old imported events to delete.`);
-                await deleteInBatches(db, oldImportSnapshot.docs);
-                console.log("Deleted old imported events.");
+                // A) Delete ALL 'app_events' (Manual + Imported)
+                const appEventsSnapshot = await collectionRef.get();
+                console.log(`Found ${appEventsSnapshot.size} app events to delete.`);
+                await deleteInBatches(db, appEventsSnapshot.docs);
+                console.log("Deleted all app events.");
 
                 // B) Delete ALL 'exchange_events'
                 const exchangeSnapshot = await db.collection('exchange_events').get();
-                console.log(`Found ${exchangeSnapshot.size} old exchange events to delete.`);
+                console.log(`Found ${exchangeSnapshot.size} exchange events to delete.`);
                 await deleteInBatches(db, exchangeSnapshot.docs);
-                console.log("Deleted old exchange events.");
+                console.log("Deleted all exchange events.");
 
 
                 // --- 2. IMPORT NEW EVENTS ---
