@@ -256,7 +256,18 @@ export function subscribeCalendar() {
     // Exchange Events - Reading from ROOT collection "exchange_events"
     exchangeUnsubscribe = db.collection('exchange_events')
         .onSnapshot(snapshot => {
-            const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), source: 'exchange' }));
+            const events = snapshot.docs.map(doc => {
+                const data = doc.data();
+                // FIX: Power Automate sends UTC but often without 'Z' suffix or just raw string.
+                // We assume ALL exchange events are UTC.
+                let start = data.start;
+                let end = data.end;
+
+                if (start && !start.endsWith('Z') && start.includes('T')) start += 'Z';
+                if (end && !end.endsWith('Z') && end.includes('T')) end += 'Z';
+
+                return { id: doc.id, ...data, start, end, source: 'exchange' };
+            });
             state.events.exchange = events;
             updateCalendarView();
         }, err => console.log("Exchange sync error", err));
@@ -347,14 +358,16 @@ function renderCalendar() {
             <div class="space-y-3">`;
 
         groupEvents.forEach(evt => {
-            const isApp = evt.source === 'app' || evt.source === 'imported';
-            const editable = isApp; // Only manually created/imported (via UI) are editable, Exchange are read-only
+            // Allow editing/deleting ALL events, including Exchange.
+            // This allows cleaning up stale sync entries manually.
+            const editable = true;
+            const isExchange = evt.source === 'exchange';
 
             const displayTime = formatEventTime(evt);
 
             html += `<div class="p-4 rounded-xl border ${editable ? 'bg-br-800 border-br-600 hover:border-blue-500 cursor-pointer' : 'bg-br-800/50 border-br-700'} transition-all relative overflow-hidden group"
                 ${editable ? `onclick="editAppointment('${evt.id}')"` : ''}>
-                ${editable ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-blue-500"></div>' : '<div class="absolute right-0 top-0 bottom-0 w-1 bg-purple-500"></div>'}
+                ${isExchange ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-purple-500"></div>' : '<div class="absolute right-0 top-0 bottom-0 w-1 bg-blue-500"></div>'}
                 <div class="flex justify-between items-start">
                     <div>
                         <div class="font-medium text-white mb-1">${evt.title || evt.subject || 'Termin'}</div>
@@ -417,11 +430,8 @@ function editAppointment(id) {
 
     if (!evt) return;
 
-    // Check if source allowed (only app or imported)
-    if (evt.source !== 'app' && evt.source !== 'imported') {
-        // Maybe show details only? For now, prevent edit.
-        return;
-    }
+    // Updated: Allow editing all sources
+    // if (evt.source !== 'app' && evt.source !== 'imported') return;
 
     state.editingAppointmentId = id;
     const start = new Date(evt.start);
@@ -459,7 +469,14 @@ async function saveAppointmentEdit() {
     const startIso = `${date}T${startTime}:00`;
     const endIso = `${date}T${endTime}:00`;
 
-    const data = { title, start: startIso, end: endIso, location, description, isAllDay, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), source: 'app' };
+    // Preserve original source if editing, else default to 'app'
+    let source = 'app';
+    if (id) {
+        const existing = state.events.app.find(e => e.id === id) || state.events.exchange.find(e => e.id === id);
+        if (existing) source = existing.source;
+    }
+
+    const data = { title, start: startIso, end: endIso, location, description, isAllDay, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), source };
 
     try {
         if (id) {
