@@ -111,25 +111,26 @@ async function handleIcsUpload(input) {
                 return;
             }
 
-            if (!confirm(`${events.length} zukünftige Termine gefunden. Importieren?\n⚠️ Alle zuvor importierten Termine werden dabei überschrieben!`)) return;
+            if (!confirm(`${events.length} zukünftige Termine gefunden. Importieren?\n⚠️ Alle zuvor importierten Termine und Synchronisierungen werden gelöscht (Reset).`)) return;
 
             // Import logic...
             const collectionRef = db.collection('app_events');
 
-            // 1. DELETE OLD IMPORTED EVENTS
-            console.log("Deleting old imported events...");
-            const oldEventsSnapshot = await collectionRef.where('source', '==', 'imported').get();
+            // --- 1. CLEANUP OLD DATA ---
+            console.log("Cleaning up old data...");
 
-            if (!oldEventsSnapshot.empty) {
-                const deleteBatch = db.batch();
-                oldEventsSnapshot.docs.forEach(doc => {
-                    deleteBatch.delete(doc.ref);
-                });
-                await deleteBatch.commit();
-                console.log(`Deleted ${oldEventsSnapshot.size} old events.`);
-            }
+            // A) Delete old 'imported' events from app_events
+            const oldImportSnapshot = await collectionRef.where('source', '==', 'imported').get();
+            await deleteInBatches(db, oldImportSnapshot.docs);
+            console.log(`Deleted ${oldImportSnapshot.size} old imported events.`);
 
-            // 2. IMPORT NEW EVENTS (Chunking logic)
+            // B) Delete ALL 'exchange_events' (email updates) to prevent duplicates
+            const exchangeSnapshot = await db.collection('exchange_events').get();
+            await deleteInBatches(db, exchangeSnapshot.docs);
+            console.log(`Deleted ${exchangeSnapshot.size} old exchange updates.`);
+
+
+            // --- 2. IMPORT NEW EVENTS ---
             const CHUNK_SIZE = 400;
             const chunks = [];
             for (let i = 0; i < events.length; i += CHUNK_SIZE) chunks.push(events.slice(i, i + CHUNK_SIZE));
@@ -143,7 +144,7 @@ async function handleIcsUpload(input) {
                     const docRef = collectionRef.doc();
                     batch.set(docRef, {
                         ...evt,
-                        source: 'imported', // Mark as imported so we can delete them next time
+                        source: 'imported', // Mark as imported
                         createdAt: new Date()
                     });
                 });
@@ -153,13 +154,25 @@ async function handleIcsUpload(input) {
             }
 
             console.log("All batches committed.");
-            alert(`✅ ${totalUploaded} Termine erfolgreich importiert (alte gelöscht)!`);
+            alert(`✅ ${totalUploaded} Termine erfolgreich importiert (Datenbank bereinigt)!`);
             input.value = ''; // Reset input here
         }, 100);
 
     } catch (e) {
         console.error("Import Error:", e);
         alert('Fehler: ' + e.message);
+    }
+}
+
+// Helper to delete docs in batches of 400
+async function deleteInBatches(db, docs) {
+    if (docs.length === 0) return;
+    const CHUNK_SIZE = 400;
+    for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
+        const batch = db.batch();
+        const chunk = docs.slice(i, i + CHUNK_SIZE);
+        chunk.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
     }
 }
 
