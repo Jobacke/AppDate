@@ -350,30 +350,46 @@ function updateCalendarView() {
 
         let instances = 0;
         let currentDate = new Date(startDate);
-        const duration = new Date(evt.end).getTime() - startDate.getTime();
 
-        // Lock Original Time to prevent DST Drift
-        const origH = String(startDate.getHours()).padStart(2, '0');
-        const origMin = String(startDate.getMinutes()).padStart(2, '0');
+        // Lock Update Logic:
+        // Identify Start Time and End Time (HH:MM) from original to avoid drift.
+        const sH = String(startDate.getHours()).padStart(2, '0');
+        const sM = String(startDate.getMinutes()).padStart(2, '0');
+
+        const origEnd = new Date(evt.end);
+        const eH = String(origEnd.getHours()).padStart(2, '0');
+        const eM = String(origEnd.getMinutes()).padStart(2, '0');
+
+        // Calculate Day Span (how many days after start does it end?)
+        // We use UTC date diff to avoid DST mess
+        const utcStartInfo = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+        const utcEndInfo = Date.UTC(origEnd.getFullYear(), origEnd.getMonth(), origEnd.getDate());
+        const daySpan = Math.round((utcEndInfo - utcStartInfo) / (1000 * 60 * 60 * 24));
 
         // Safety: Max 500 instances
         while (currentDate <= endDateLimit && instances < 500) {
             const y = currentDate.getFullYear();
             const m = String(currentDate.getMonth() + 1).padStart(2, '0');
             const d = String(currentDate.getDate()).padStart(2, '0');
-            const dateStr = `${y}-${m}-${d}`; // YYYY-MM-DD
+            const dateStr = `${y}-${m}-${d}`;
 
-            // Check Exclusions (Single Delete)
+            // Check Exclusions
             if (evt.excludedDates && evt.excludedDates.includes(dateStr)) {
-                // Skip but increment
                 incrementDate(currentDate, recurrence, interval);
                 instances++;
                 continue;
             }
 
-            // Use Original Time (origH, origMin) NOT currentDate time
-            const newStartIso = `${y}-${m}-${d}T${origH}:${origMin}:00`;
-            const newEndIso = new Date(new Date(newStartIso).getTime() + duration).toISOString().slice(0, 19);
+            // Construct Start
+            const newStartIso = `${y}-${m}-${d}T${sH}:${sM}:00`;
+
+            // Construct End (Day + Span)
+            const endDateRef = new Date(currentDate);
+            endDateRef.setDate(endDateRef.getDate() + daySpan);
+            const yE = endDateRef.getFullYear();
+            const mE = String(endDateRef.getMonth() + 1).padStart(2, '0');
+            const dE = String(endDateRef.getDate()).padStart(2, '0');
+            const newEndIso = `${yE}-${mE}-${dE}T${eH}:${eM}:00`;
 
             const instance = { ...evt, start: newStartIso, end: newEndIso, _isInstance: instances > 0 };
             const instanceKey = `${newStartIso.split('T')[0]}|${evt.title}`;
