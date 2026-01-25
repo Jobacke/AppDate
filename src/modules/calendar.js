@@ -48,8 +48,8 @@ function jumpToDate(dateStr) {
     const element = document.getElementById(`date-${dateStr}`);
 
     if (element) {
-        // Offset for sticky header (adjust based on header height)
-        const headerOffset = 220;
+        // Offset for sticky header (adjust based on header height 160px)
+        const headerOffset = 170;
         const elementPosition = element.getBoundingClientRect().top;
         const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
@@ -319,7 +319,7 @@ function renderCalendar() {
         const isToday = date === new Date().toISOString().split('T')[0];
 
         html += `<div id="date-${date}" class="mb-6 scroll-mt-48 transition-colors duration-500 rounded-lg">
-            <div class="sticky top-[7.5rem] bg-br-900/95 backdrop-blur py-2 border-b border-br-700 mb-2 z-10 flex items-center gap-2 shadow-md">
+            <div class="sticky top-[10rem] bg-br-900/95 backdrop-blur py-2 border-b border-br-700 mb-2 z-10 flex items-center gap-2 shadow-md">
                 <h3 class="font-bold ${isToday ? 'text-blue-400' : 'text-br-200'} text-lg">${isToday ? 'Heute, ' : ''}${dayName}</h3>
             </div>
             <div class="space-y-3">`;
