@@ -8,6 +8,9 @@ export function initCalendar() {
     window.deleteAppointment = deleteAppointment;
     window.closeEditAppointmentModal = closeEditAppointmentModal;
     window.openAddAppointmentModal = openAddAppointmentModal;
+    window.handleIcsUpload = handleIcsUpload;
+    window.jumpToToday = jumpToToday;
+    window.jumpToDate = jumpToDate;
 
     // Immediately start listening when module loads
     subscribeCalendar();
@@ -15,6 +18,141 @@ export function initCalendar() {
 
 let exchangeUnsubscribe = null;
 let appUnsubscribe = null;
+
+// === Navigation ===
+
+function jumpToToday() {
+    const today = new Date().toISOString().split('T')[0];
+    jumpToDate(today);
+}
+
+function jumpToDate(dateStr) {
+    if (!dateStr) return;
+
+    // Convert date string to match our ID format (date-YYYY-MM-DD)
+    const element = document.getElementById(`date-${dateStr}`);
+
+    if (element) {
+        // Offset for sticky header
+        const headerOffset = 180;
+        const elementPosition = element.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+        window.scrollTo({
+            top: offsetPosition,
+            behavior: "smooth"
+        });
+
+        // Highlight effect
+        element.classList.add('bg-br-700');
+        setTimeout(() => element.classList.remove('bg-br-700'), 1500);
+    } else {
+        // If exact date not found, find next closest
+        const allDates = Object.keys(state.groupedEvents || {}).sort();
+        const nextDate = allDates.find(d => d >= dateStr);
+        if (nextDate) {
+            jumpToDate(nextDate);
+        } else {
+            alert('Keine Termine an oder nach diesem Datum gefunden.');
+        }
+    }
+
+    // Update picker visual
+    const picker = document.getElementById('dateNav');
+    if (picker && picker.value !== dateStr) picker.value = dateStr;
+}
+
+// === ICS Import ===
+
+async function handleIcsUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        const events = parseICS(text);
+
+        if (events.length === 0) {
+            alert('Keine gültigen Termine in der Datei gefunden.');
+            return;
+        }
+
+        if (!confirm(`${events.length} Termine gefunden. Importieren?`)) return;
+
+        // Batch upload to Firestore (app_events)
+        const batch = db.batch();
+        const collectionRef = db.collection('app_events');
+
+        events.forEach(evt => {
+            const docRef = collectionRef.doc();
+            batch.set(docRef, {
+                ...evt,
+                source: 'imported',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        });
+
+        await batch.commit();
+        alert('✅ Import erfolgreich!');
+        input.value = ''; // Reset input
+
+    } catch (e) {
+        console.error(e);
+        alert('Fehler beim Importieren der ICS Datei.');
+    }
+}
+
+function parseICS(icsContent) {
+    const events = [];
+    const lines = icsContent.split(/\r\n|\n|\r/);
+    let currentEvent = null;
+
+    const parseDate = (val) => {
+        if (!val) return null;
+        try {
+            const cleanVal = val.split(';')[0]; // Remove params if any
+            const year = cleanVal.substring(0, 4);
+            const month = cleanVal.substring(4, 6);
+            const day = cleanVal.substring(6, 8);
+            let hour = '00', minute = '00', second = '00';
+
+            if (cleanVal.includes('T')) {
+                const timePart = cleanVal.split('T')[1];
+                hour = timePart.substring(0, 2);
+                minute = timePart.substring(2, 4);
+                second = timePart.substring(4, 6);
+            }
+            return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+        } catch (e) { return null; }
+    };
+
+    lines.forEach(line => {
+        if (line.startsWith('BEGIN:VEVENT')) {
+            currentEvent = {};
+        } else if (line.startsWith('END:VEVENT')) {
+            if (currentEvent && currentEvent.title && currentEvent.start) {
+                events.push(currentEvent);
+            }
+            currentEvent = null;
+        } else if (currentEvent) {
+            // Basic parsing
+            if (line.startsWith('SUMMARY:')) currentEvent.title = line.substring(8);
+            if (line.startsWith('DTSTART')) {
+                const val = line.split(':')[1];
+                currentEvent.start = parseDate(val);
+                if (line.includes('VALUE=DATE')) currentEvent.isAllDay = true;
+            }
+            if (line.startsWith('DTEND')) {
+                const val = line.split(':')[1];
+                currentEvent.end = parseDate(val);
+            }
+            if (line.startsWith('LOCATION:')) currentEvent.location = line.substring(9);
+            if (line.startsWith('DESCRIPTION:')) currentEvent.description = line.substring(12);
+        }
+    });
+
+    return events;
+}
 
 export function subscribeCalendar() {
     unsubscribeCalendar(); // Clear previous

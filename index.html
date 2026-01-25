@@ -13,19 +13,37 @@
   <!-- App Content -->
   <div id="app" class="w-full max-w-lg mx-auto pb-20">
     <!-- Header -->
-    <header
-      class="bg-br-800 border-b border-br-600 p-4 sticky top-0 z-40 flex justify-between items-center bg-opacity-90 backdrop-blur">
-      <h1 class="text-xl font-bold">📅 AppDate</h1>
+    <header class="bg-br-800 border-b border-br-600 sticky top-0 z-40 bg-opacity-95 backdrop-blur shadow-lg">
+      <div class="p-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">📅
+          AppDate</h1>
+        <div class="flex gap-2">
+          <input type="file" id="icsInput" accept=".ics" class="hidden" onchange="handleIcsUpload(this)">
+          <button onclick="document.getElementById('icsInput').click()"
+            class="p-2 bg-br-700 hover:bg-br-600 rounded-lg text-xs flex items-center gap-1 transition-colors"
+            title="ICS Importieren">
+            📥 <span class="hidden sm:inline">Import</span>
+          </button>
+          <button onclick="openAddAppointmentModal()"
+            class="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-colors shadow-lg shadow-blue-900/20">
+            ➕ Neu
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Bar -->
+      <div class="px-4 pb-3 flex gap-2">
+        <button onclick="jumpToToday()"
+          class="px-4 py-2 bg-br-700 hover:bg-br-600 rounded-lg text-sm font-medium transition-colors border border-br-600 flex-1">
+          Heute
+        </button>
+        <input type="date" id="dateNav" onchange="jumpToDate(this.value)"
+          class="bg-br-700 border border-br-600 text-white text-sm rounded-lg block p-2 flex-[2] focus:ring-blue-500 focus:border-blue-500">
+      </div>
     </header>
 
     <!-- Main Content -->
     <div class="p-4 space-y-4">
-      <!-- Add Button -->
-      <button onclick="openAddAppointmentModal()"
-        class="w-full py-3 bg-br-500 hover:bg-br-400 rounded-xl font-bold transition-all shadow-lg border border-br-400">
-        ➕ Neuer Termin
-      </button>
-
       <!-- Calendar List -->
       <div id="calendarList">
         <div class="text-center text-br-300 py-8">Lade Termine...</div>
