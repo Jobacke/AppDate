@@ -48,8 +48,8 @@ function jumpToDate(dateStr) {
     const element = document.getElementById(`date-${dateStr}`);
 
     if (element) {
-        // Offset for sticky header
-        const headerOffset = 180;
+        // Offset for sticky header (adjust based on header height)
+        const headerOffset = 220;
         const elementPosition = element.getBoundingClientRect().top;
         const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
