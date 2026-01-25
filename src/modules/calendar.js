@@ -596,12 +596,14 @@ async function deleteAppointment() {
     const id = state.editingAppointmentId;
     console.log("Start delete flow for ID:", id);
 
-    if (!id || !confirm('Termin wirklich löschen?')) {
-        console.log("Delete cancelled or no ID.");
+    if (!id) {
+        console.log("No ID found. Cannot delete.");
         return;
     }
 
-    console.log("User confirmed delete.");
+    // Explicitly removed confirm() to fix blocking issue.
+    console.log("Proceeding with delete (no confirm dialog).");
+    console.log("User confirmed delete (assumed).");
 
     // Bruteforce: Delete from BOTH collections to be sure.
     // Deleting a non-existent doc is not an error in Firestore.
