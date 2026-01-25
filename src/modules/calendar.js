@@ -292,15 +292,27 @@ export function unsubscribeCalendar() {
 function toggleRecurrenceInput() {
     const val = document.getElementById('apptRecurrence').value;
     const endInput = document.getElementById('apptRecurrenceEnd');
+    const intervalGroup = document.getElementById('recurrenceIntervalGroup');
+    const unitLabel = document.getElementById('recurrenceUnitLabel');
+
     if (val === 'none') {
         endInput.disabled = true;
         endInput.value = '';
+        intervalGroup.classList.add('hidden');
     } else {
         endInput.disabled = false;
+        intervalGroup.classList.remove('hidden');
+
+        let label = 'Tage';
+        if (val === 'weekly') label = 'Wochen';
+        if (val === 'monthly') label = 'Monate';
+        if (val === 'yearly') label = 'Jahre';
+        unitLabel.textContent = label;
+
         if (!endInput.value) {
-            // Default to 1 month from now
+            // Default to 1 year from now
             const d = new Date();
-            d.setMonth(d.getMonth() + 1);
+            d.setFullYear(d.getFullYear() + 1);
             endInput.value = d.toISOString().split('T')[0];
         }
     }
@@ -317,74 +329,52 @@ function updateCalendarView() {
     // 1. Deduplication & Expansion
     const expandedMap = new Map(); // Key: "originalId|date" -> event
 
-    // Helper to generate instances
     const processEvent = (evt) => {
-        // Base event
         const key = `${evt.start.split('T')[0]}|${evt.title}`;
 
-        // Always add the base event first (if in future/relevant)
-        // Check relevance later after sorting
-
-        // If no recurrence, just add to list
+        // No recurrence or interval 0 (safety)
         if (!evt.recurrence || evt.recurrence === 'none') {
             expandedMap.set(key, evt);
             return;
         }
 
-        // Handle Recurrence
-        const startDate = new Date(evt.start);
-        const endDateLimit = evt.recurrenceEnd ? new Date(evt.recurrenceEnd) : new Date(new Date().setFullYear(new Date().getFullYear() + 1)); // Max 1 year default
+        const recurrence = evt.recurrence;
+        const interval = parseInt(evt.recurrenceInterval || 1, 10);
 
-        // Add safeguard limit for loop (max 365 instances)
+        const startDate = new Date(evt.start);
+        const endDateLimit = evt.recurrenceEnd ? new Date(evt.recurrenceEnd) : new Date(new Date().setFullYear(new Date().getFullYear() + 1));
+
         let instances = 0;
         let currentDate = new Date(startDate);
-
-        // Duration of event to calc end time
         const duration = new Date(evt.end).getTime() - startDate.getTime();
 
-        while (currentDate <= endDateLimit && instances < 365) {
-            // Format current instance iso string
-            // We use local time construction
-            // Adjust time from original event
+        // Safety: Max 500 instances
+        while (currentDate <= endDateLimit && instances < 500) {
             const y = currentDate.getFullYear();
             const m = String(currentDate.getMonth() + 1).padStart(2, '0');
             const d = String(currentDate.getDate()).padStart(2, '0');
             const h = String(currentDate.getHours()).padStart(2, '0');
             const min = String(currentDate.getMinutes()).padStart(2, '0');
 
-            // Build ISO string manually to preserve local time aspect
             const newStartIso = `${y}-${m}-${d}T${h}:${min}:00`;
-            const newEndIso = new Date(new Date(newStartIso).getTime() + duration).toISOString().slice(0, 19); // Simplified
+            const newEndIso = new Date(new Date(newStartIso).getTime() + duration).toISOString().slice(0, 19);
 
-            // Clone event
             const instance = { ...evt, start: newStartIso, end: newEndIso, _isInstance: instances > 0 };
             const instanceKey = `${newStartIso.split('T')[0]}|${evt.title}`;
 
-            // Priority Check: If Exchange has same slot, Exchange wins. 
-            // BUT here we process source by source. 
-            // We'll filter map later.
-
             expandedMap.set(instanceKey, instance);
 
-            // Increment
-            if (evt.recurrence === 'daily') currentDate.setDate(currentDate.getDate() + 1);
-            if (evt.recurrence === 'weekly') currentDate.setDate(currentDate.getDate() + 7);
-            if (evt.recurrence === 'monthly') currentDate.setMonth(currentDate.getMonth() + 1);
+            // Increment based on interval
+            if (recurrence === 'daily') currentDate.setDate(currentDate.getDate() + interval);
+            if (recurrence === 'weekly') currentDate.setDate(currentDate.getDate() + (7 * interval));
+            if (recurrence === 'monthly') currentDate.setMonth(currentDate.getMonth() + interval);
+            if (recurrence === 'yearly') currentDate.setFullYear(currentDate.getFullYear() + interval);
 
             instances++;
         }
     };
 
-    // Priority: Exchange OVERWRITES App (if exact match). 
-    // Wait, recurrence expansion logic is tricky with deduplication.
-    // Let's first collect ALL events (App + Exchange), then expand them, then Dedupe by map key.
-
     const allSources = [...state.events.app, ...state.events.exchange];
-
-    // Sort so exchange usually comes last? No, random order.
-    // Actually better: Expand all, put in Map. If explicit conflict, Exchange wins (assuming Exchange has no Recurrence fields yet? Or does it?)
-    // User asked for "Neueinträge" recurrence. So App events have recurrence.
-
     allSources.forEach(processEvent);
 
     state.allEvents = Array.from(expandedMap.values());
@@ -502,6 +492,7 @@ function openAddAppointmentModal() {
 
     // Reset Recurrence
     document.getElementById('apptRecurrence').value = 'none';
+    document.getElementById('apptRecurrenceInterval').value = '1';
     document.getElementById('apptRecurrenceEnd').value = '';
     toggleRecurrenceInput();
 
@@ -513,7 +504,10 @@ function editAppointment(id) {
     let evt = state.events.app.find(e => e.id === id);
     if (!evt) evt = state.events.exchange.find(e => e.id === id);
 
-    if (!evt) return;
+    if (!evt) {
+        console.error("Event not found for editing:", id);
+        return;
+    }
 
     state.editingAppointmentId = id;
     const start = new Date(evt.start);
@@ -532,6 +526,7 @@ function editAppointment(id) {
 
     // Recurrence
     document.getElementById('apptRecurrence').value = evt.recurrence || 'none';
+    document.getElementById('apptRecurrenceInterval').value = evt.recurrenceInterval || '1';
     document.getElementById('apptRecurrenceEnd').value = evt.recurrenceEnd || '';
     toggleRecurrenceInput();
 
@@ -551,6 +546,7 @@ async function saveAppointmentEdit() {
 
     // Recurrence
     const recurrence = document.getElementById('apptRecurrence').value;
+    const recurrenceInterval = document.getElementById('apptRecurrenceInterval').value;
     const recurrenceEnd = document.getElementById('apptRecurrenceEnd').value;
 
     if (!title || !date) {
@@ -576,6 +572,7 @@ async function saveAppointmentEdit() {
         description,
         isAllDay,
         recurrence,
+        recurrenceInterval: parseInt(recurrenceInterval || 1, 10),
         recurrenceEnd,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         source
@@ -591,25 +588,31 @@ async function saveAppointmentEdit() {
         closeEditAppointmentModal();
     } catch (e) {
         console.error(e);
-        alert('❌ Fehler beim Speichern');
+        alert('❌ Fehler beim Speichern: ' + e.message);
     }
 }
 
 async function deleteAppointment() {
-    if (!state.editingAppointmentId || !confirm('Termin wirklich löschen?')) return;
+    const id = state.editingAppointmentId;
+    console.log("Attempting delete for ID:", id);
+
+    if (!id || !confirm('Termin wirklich löschen?')) return;
 
     // Find event to know which collection to delete from
-    const id = state.editingAppointmentId;
     const appEvent = state.events.app.find(e => e.id === id);
     const exchangeEvent = state.events.exchange.find(e => e.id === id);
 
+    console.log("Found in App:", !!appEvent, "Found in Exchange:", !!exchangeEvent);
+
     const collectionName = exchangeEvent ? 'exchange_events' : 'app_events';
+    console.log("Target Collection:", collectionName);
 
     try {
         await db.collection(collectionName).doc(id).delete();
+        console.log("Delete success");
         closeEditAppointmentModal();
     } catch (e) {
-        console.error(e);
+        console.error("Delete failed:", e);
         alert('❌ Fehler beim Löschen: ' + e.message);
     }
 }

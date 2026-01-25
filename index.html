@@ -99,21 +99,34 @@
         </div>
 
         <!-- Recurrence Section -->
-        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-br-600/50">
-          <div>
-            <label class="text-xs text-br-200 mb-1 block">Wiederholung</label>
-            <select id="apptRecurrence"
-              class="w-full bg-br-700 border border-br-500 rounded-lg p-2.5 text-sm text-white focus:outline-none">
-              <option value="none">Keine</option>
-              <option value="daily">Täglich</option>
-              <option value="weekly">Wöchentlich</option>
-              <option value="monthly">Monatlich</option>
-            </select>
+        <div class="pt-2 border-t border-br-600/50 space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-br-200 mb-1 block">Wiederholung</label>
+              <select id="apptRecurrence"
+                class="w-full bg-br-700 border border-br-500 rounded-lg p-2.5 text-sm text-white focus:outline-none">
+                <option value="none">Keine</option>
+                <option value="daily">Täglich</option>
+                <option value="weekly">Wöchentlich</option>
+                <option value="monthly">Monatlich</option>
+                <option value="yearly">Jährlich</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-br-200 mb-1 block">Endet am</label>
+              <input type="date" id="apptRecurrenceEnd"
+                class="w-full bg-br-700 border border-br-500 rounded-lg p-2.5 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed">
+            </div>
           </div>
-          <div>
-            <label class="text-xs text-br-200 mb-1 block">Wiederholen bis</label>
-            <input type="date" id="apptRecurrenceEnd"
-              class="w-full bg-br-700 border border-br-500 rounded-lg p-2.5 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed">
+
+          <!-- Interval (Alle X ...) -->
+          <div id="recurrenceIntervalGroup" class="hidden">
+            <label class="text-xs text-br-200 mb-1 block">Wiederhole alle (Intervall)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="apptRecurrenceInterval" value="1" min="1"
+                class="w-20 bg-br-700 border border-br-500 rounded-lg p-2.5 text-sm text-white">
+              <span class="text-sm text-br-300" id="recurrenceUnitLabel">Tage/Wochen</span>
+            </div>
           </div>
         </div>
 
