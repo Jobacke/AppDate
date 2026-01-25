@@ -97,25 +97,39 @@ async function handleIcsUpload(input) {
             return;
         }
 
-        if (!confirm(`${events.length} Termine gefunden. Importieren?`)) return;
+        if (!confirm(`${events.length} Termine gefunden. Importieren? (Das kann einen Moment dauern)`)) return;
 
-        const batch = db.batch();
         const collectionRef = db.collection('app_events');
 
-        let count = 0;
-        events.forEach(evt => {
-            const docRef = collectionRef.doc();
-            batch.set(docRef, {
-                ...evt,
-                source: 'imported',
-                createdAt: new Date()
-            }, { merge: true });
-            count++;
-        });
+        // Firestore batch limit is 500 operations. We'll use 400 to be safe.
+        const CHUNK_SIZE = 400;
+        const chunks = [];
 
-        await batch.commit();
-        console.log("Batch commit success");
-        alert(`✅ ${count} Termine importiert!`);
+        for (let i = 0; i < events.length; i += CHUNK_SIZE) {
+            chunks.push(events.slice(i, i + CHUNK_SIZE));
+        }
+
+        console.log(`Uploading in ${chunks.length} batches...`);
+
+        let totalUploaded = 0;
+
+        for (const chunk of chunks) {
+            const batch = db.batch();
+            chunk.forEach(evt => {
+                const docRef = collectionRef.doc();
+                batch.set(docRef, {
+                    ...evt,
+                    source: 'imported',
+                    createdAt: new Date()
+                }, { merge: true });
+            });
+            await batch.commit();
+            totalUploaded += chunk.length;
+            console.log(`Uploaded ${totalUploaded}/${events.length}`);
+        }
+
+        console.log("All batches committed.");
+        alert(`✅ ${totalUploaded} Termine erfolgreich importiert!`);
         input.value = '';
 
     } catch (e) {
