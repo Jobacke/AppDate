@@ -42,10 +42,21 @@
         <div class="flex-grow"></div>
 
         <!-- Action Buttons -->
-        <button onclick="openAddAppointmentModal()"
-          class="px-4 py-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2">
-          <span>➕</span> <span class="hidden sm:inline">Neuer Termin</span>
-        </button>
+        <div class="flex items-center gap-3">
+          <!-- ICS Reset/Import Button -->
+          <label for="icsInput"
+            class="p-3 bg-br-700 hover:bg-br-600 text-br-200 rounded-xl cursor-pointer transition-colors shadow-lg border border-br-600/50"
+            title="ICS Importieren & Reset">
+            <i class="ph-upload-simple text-xl"></i>
+          </label>
+          <input type="file" id="icsInput" accept=".ics" class="hidden">
+
+          <button onclick="openAddAppointmentModal()"
+            class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-green-500/20 flex items-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+            <i class="ph-plus-bold"></i>
+            <span class="hidden sm:inline">Neuer Termin</span>
+          </button>
+        </div>
       </div>
     </header>
 
