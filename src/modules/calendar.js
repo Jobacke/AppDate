@@ -8,6 +8,14 @@ export function initCalendar() {
     window.deleteAppointment = deleteAppointment;
     window.closeEditAppointmentModal = closeEditAppointmentModal;
     window.openAddAppointmentModal = openAddAppointmentModal;
+    // Explicitly attach listener to ensure reliable triggering
+    const input = document.getElementById('icsInput');
+    if (input) {
+        input.onchange = function () { handleIcsUpload(this); };
+        // Allow re-selecting the same file
+        input.onclick = function () { this.value = null; };
+    }
+
     // Immediately start listening when module loads
     subscribeCalendar();
 }
