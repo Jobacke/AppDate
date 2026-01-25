@@ -51,7 +51,8 @@
             title="ICS Importieren & Reset">
             <span>Import / Reset</span>
           </label>
-          <input type="file" id="icsInput" accept=".ics" class="hidden">
+          <input type="file" id="icsInput" accept=".ics" class="hidden" onchange="handleIcsUpload(this)">
+
 
           <button onclick="openAddAppointmentModal()"
             class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-green-500/20 flex items-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
