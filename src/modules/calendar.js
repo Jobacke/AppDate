@@ -119,9 +119,11 @@ async function handleIcsUpload(input) {
                     return;
                 }
 
-                // Temporary removal of confirm to test execution flow
-                // if(!confirm(...)) return; 
-                console.log("Skipped confirm dialog for debugging. Proceeding...");
+                if (!confirm('⚠️ ACHTUNG: Dies löscht ALLE bestehenden Termine (App & Exchange) und importiert die Datei neu.\n\nWirklich fortfahren?')) {
+                    input.value = ''; // Reset file input so change event triggers next time
+                    return;
+                }
+                console.log("User confirmed Reset & Import.");
 
                 const collectionRef = db.collection('app_events');
 
