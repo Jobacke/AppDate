@@ -278,7 +278,25 @@ export function unsubscribeCalendar() {
 }
 
 function updateCalendarView() {
-    state.allEvents = [...state.events.exchange, ...state.events.app];
+    // Deduplication Logic
+    // Priority: Exchange > App/Imported
+    const uniqueMap = new Map();
+
+    // 1. Add App events first
+    state.events.app.forEach(evt => {
+        const key = `${evt.start}|${evt.title}`;
+        uniqueMap.set(key, evt);
+    });
+
+    // 2. Add Exchange events (overwriting app events if duplicates exist)
+    state.events.exchange.forEach(evt => {
+        const key = `${evt.start}|${evt.title}`;
+        // Optional: If we want to strictly purge duplicates, we overwrite.
+        // But better: if duplicate exists, prefer the one with 'exchange' source.
+        uniqueMap.set(key, evt);
+    });
+
+    state.allEvents = Array.from(uniqueMap.values());
     renderCalendar();
 }
 
@@ -329,10 +347,8 @@ function renderCalendar() {
             <div class="space-y-3">`;
 
         groupEvents.forEach(evt => {
-            const isApp = evt.source === 'app' || evt.source === 'imported'; // Treat imported as app-editable
-            // Note: Imported events usually default to 'imported' source, let's treat them as app (editable) visually if desired, or distinct.
-            // For now, let's make them editable:
-            const editable = isApp || evt.source === 'imported';
+            const isApp = evt.source === 'app' || evt.source === 'imported';
+            const editable = isApp; // Only manually created/imported (via UI) are editable, Exchange are read-only
 
             const displayTime = formatEventTime(evt);
 
@@ -347,7 +363,6 @@ function renderCalendar() {
                             ${evt.location ? `<span class="flex items-center gap-1">📍 ${evt.location}</span>` : ''}
                         </div>
                     </div>
-                    ${editable ? '' : '<span class="text-[10px] bg-purple-900/50 text-purple-300 px-2 py-1 rounded border border-purple-800">Exchange</span>'}
                 </div>
                 ${evt.description ? `<div class="mt-2 text-xs text-br-400 line-clamp-2">${evt.description}</div>` : ''}
             </div>`;
@@ -370,7 +385,7 @@ function formatEventTime(evt) {
             return `${s.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} - ${e.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
         } catch (ex) { }
     }
-    return 'Zeit unklar';
+    return '';
 }
 
 function addAppointment() {
