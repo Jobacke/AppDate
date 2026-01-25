@@ -11,7 +11,7 @@ export function initCalendar() {
     // Explicitly attach listener to ensure reliable triggering
     const input = document.getElementById('icsInput');
     if (input) {
-        input.onchange = function () { handleIcsUpload(this); };
+        // onchange is handled via HTML attribute now
         // Allow re-selecting the same file
         input.onclick = function () { this.value = null; };
     }
@@ -84,7 +84,15 @@ function jumpToDate(dateStr) {
 // === ICS Import ===
 
 async function handleIcsUpload(input) {
-    if (!input.files || !input.files[0]) return;
+    // Debug Alert (remove later)
+    // alert("Debug: Upload Triggered"); 
+    // Console log is better if alert is blocked? But user says "question not coming".
+    console.log("DEBUG: handleIcsUpload called with", input);
+
+    if (!input.files || !input.files[0]) {
+        console.log("No file selected.");
+        return;
+    }
 
     // Move confirm here (Sync/Direct context) to avoid blocking
     if (!confirm('⚠️ ACHTUNG: Dies löscht ALLE bestehenden Termine (App & Exchange) und importiert die Datei neu.\n\nWirklich fortfahren?')) {
