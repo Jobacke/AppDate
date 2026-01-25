@@ -8,13 +8,20 @@ export function initCalendar() {
     window.deleteAppointment = deleteAppointment;
     window.closeEditAppointmentModal = closeEditAppointmentModal;
     window.openAddAppointmentModal = openAddAppointmentModal;
-    window.handleIcsUpload = handleIcsUpload;
-    window.jumpToToday = jumpToToday;
-    window.jumpToDate = jumpToDate;
-
     // Immediately start listening when module loads
     subscribeCalendar();
 }
+
+// Expose functions globally
+window.addAppointment = addAppointment;
+window.editAppointment = editAppointment;
+window.saveAppointmentEdit = saveAppointmentEdit;
+window.deleteAppointment = deleteAppointment;
+window.closeEditAppointmentModal = closeEditAppointmentModal;
+window.openAddAppointmentModal = openAddAppointmentModal;
+window.handleIcsUpload = handleIcsUpload;
+window.jumpToToday = jumpToToday;
+window.jumpToDate = jumpToDate;
 
 let exchangeUnsubscribe = null;
 let appUnsubscribe = null;
