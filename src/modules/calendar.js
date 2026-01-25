@@ -28,11 +28,33 @@ window.deleteAppointment = deleteAppointment;
 window.closeEditAppointmentModal = closeEditAppointmentModal;
 window.openAddAppointmentModal = openAddAppointmentModal;
 window.handleIcsUpload = handleIcsUpload;
+window.setCalendarFilter = setCalendarFilter;
 window.jumpToToday = jumpToToday;
 window.jumpToDate = jumpToDate;
 
 let exchangeUnsubscribe = null;
 let appUnsubscribe = null;
+let currentFilter = 'all';
+
+function setCalendarFilter(val) {
+    currentFilter = val;
+
+    // Update UI Buttons
+    ['all', 'exchange', 'manual'].forEach(type => {
+        const btn = document.getElementById(`filter-btn-${type}`);
+        if (btn) {
+            if (type === val) {
+                btn.classList.add('bg-blue-600', 'text-white', 'shadow');
+                btn.classList.remove('text-br-300');
+            } else {
+                btn.classList.remove('bg-blue-600', 'text-white', 'shadow');
+                btn.classList.add('text-br-300');
+            }
+        }
+    });
+
+    renderCalendar();
+}
 
 // === Navigation ===
 
@@ -438,13 +460,26 @@ function renderCalendar() {
         return;
     }
 
-    events.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+    // Apply Filter
+    const filteredEvents = events.filter(e => {
+        if (currentFilter === 'all') return true;
+        if (currentFilter === 'exchange') return e.source === 'exchange' || e.source === 'imported';
+        if (currentFilter === 'manual') return e.source === 'app';
+        return true;
+    });
+
+    if (filteredEvents.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-br-300"><div class="text-4xl mb-2">🔍</div><p>Keine Termine für diesen Filter</p></div>`;
+        return;
+    }
+
+    filteredEvents.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayIso = yesterday.toISOString().split('T')[0];
 
-    const relevantEvents = events.filter(e => {
+    const relevantEvents = filteredEvents.filter(e => {
         const dateStr = (e.start || '').split('T')[0];
         return dateStr >= yesterdayIso;
     });
