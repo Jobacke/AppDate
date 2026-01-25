@@ -8,6 +8,9 @@ export function initCalendar() {
     window.deleteAppointment = deleteAppointment;
     window.closeEditAppointmentModal = closeEditAppointmentModal;
     window.openAddAppointmentModal = openAddAppointmentModal;
+
+    // Immediately start listening when module loads
+    subscribeCalendar();
 }
 
 let exchangeUnsubscribe = null;
