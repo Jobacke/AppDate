@@ -62,15 +62,24 @@
         <div class="flex items-center gap-3">
 
           <!-- Manual Backup Controls -->
+          <!-- Manual Backup Controls -->
           <div
-            class="flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1 border border-white/20 shadow-sm">
-            <button onclick="exportManualAppointments()" title="Manuelle Termine exportieren (Backup)"
-              class="p-2 text-white hover:bg-white/20 rounded transition-colors group">
+            class="flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1 pr-2 border border-white/20 shadow-sm">
+
+            <!-- Label -->
+            <span
+              class="text-[10px] font-bold text-blue-100 uppercase tracking-wider ml-2 mr-1 cursor-default select-none">Backup</span>
+
+            <!-- Divider -->
+            <div class="w-px h-4 bg-white/20 mx-1"></div>
+
+            <button onclick="exportManualAppointments()" title="Manuelle Termine exportieren"
+              class="p-1.5 text-white hover:bg-white/20 rounded transition-colors group flex items-center gap-1">
               <i class="ph-download-simple-bold text-lg group-hover:scale-110 transition-transform"></i>
             </button>
-            <div class="w-px h-4 bg-white/20"></div>
+
             <label title="Backup wiederherstellen"
-              class="p-2 text-white hover:bg-white/20 rounded transition-colors cursor-pointer group">
+              class="p-1.5 text-white hover:bg-white/20 rounded transition-colors cursor-pointer group flex items-center gap-1">
               <i class="ph-upload-simple-bold text-lg group-hover:scale-110 transition-transform"></i>
               <input type="file" accept=".json" class="hidden" onchange="handleBackupUpload(this)">
             </label>
