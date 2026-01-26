@@ -1,7 +1,7 @@
 import { state } from '../store.js';
 import { db, firebase } from '../config.js';
 
-const APP_VERSION = 'v1.2.2';
+const APP_VERSION = 'v1.2.3';
 
 export function initCalendar() {
     console.log("AppDate Version:", APP_VERSION);
@@ -118,6 +118,7 @@ window.deleteSelectedAppointments = async () => {
 
 function updateSelectionUI() {
     const btn = document.getElementById('btnSelectionMode');
+    const btnText = btn.querySelector('span:not(#selectionCountBadge)');
     const badge = document.getElementById('selectionCountBadge');
     const deleteBtn = document.getElementById('btnDeleteSelected');
     const addBtn = document.querySelector('button[onclick="openAddAppointmentModal()"]'); // Find the green button
@@ -125,6 +126,7 @@ function updateSelectionUI() {
     if (isSelectionMode) {
         btn.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
         btn.classList.remove('text-br-300');
+        if (btnText) btnText.textContent = 'Nicht Löschen';
 
         if (addBtn) addBtn.classList.add('hidden'); // Hide Add button to make space/reduce confusion
 
@@ -143,6 +145,7 @@ function updateSelectionUI() {
     } else {
         btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-500');
         btn.classList.add('text-br-300');
+        if (btnText) btnText.textContent = 'Löschauswahl';
 
         if (addBtn) addBtn.classList.remove('hidden');
 
