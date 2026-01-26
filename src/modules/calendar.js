@@ -46,9 +46,239 @@ let currentFilter = 'all';
 let currentSearchTerm = '';
 let initialScrollDone = false;
 
+// View State
+let currentView = 'calendar'; // 'calendar' or 'overview'
+let overviewRange = 'week'; // 'week', 'month', 'year', 'custom'
+
 // Selection Mode State
 let isSelectionMode = false;
 let selectedIds = new Set();
+
+window.switchView = (view) => {
+    currentView = view;
+
+    // UI Toggles
+    const calList = document.getElementById('calendarList');
+    const ovView = document.getElementById('overviewView');
+    const btnCal = document.getElementById('nav-btn-calendar');
+    const btnOv = document.getElementById('nav-btn-overview');
+
+    // Header specific elements to hide/show
+    // Actually, keep header global but maybe hide the "Jump to Today" in overview if desired.
+    // user wanted "New Tab", so standard behavior is enough.
+
+    if (view === 'calendar') {
+        calList.classList.remove('hidden');
+        ovView.classList.add('hidden');
+
+        // Nav Styling
+        btnCal.classList.add('text-blue-400', 'bg-blue-500/10');
+        btnCal.classList.remove('text-br-400', 'hover:text-br-200');
+
+        btnOv.classList.remove('text-blue-400', 'bg-blue-500/10');
+        btnOv.classList.add('text-br-400', 'hover:text-br-200');
+
+        renderCalendar(); // Refresh
+    } else {
+        calList.classList.add('hidden');
+        ovView.classList.remove('hidden');
+
+        // Nav Styling
+        btnOv.classList.add('text-blue-400', 'bg-blue-500/10');
+        btnOv.classList.remove('text-br-400', 'hover:text-br-200');
+
+        btnCal.classList.remove('text-blue-400', 'bg-blue-500/10');
+        btnCal.classList.add('text-br-400', 'hover:text-br-200');
+
+        renderOverview();
+    }
+};
+
+window.setOverviewRange = (range) => {
+    overviewRange = range;
+
+    // Update Buttons
+    ['week', 'month', 'year', 'custom'].forEach(r => {
+        const btn = document.getElementById(`ov-btn-${r}`);
+        if (r === range) {
+            btn.classList.add('bg-blue-600', 'text-white', 'shadow');
+            btn.classList.remove('text-br-300', 'hover:text-white');
+        } else {
+            btn.classList.remove('bg-blue-600', 'text-white', 'shadow');
+            btn.classList.add('text-br-300', 'hover:text-white');
+        }
+    });
+
+    const customInputs = document.getElementById('overviewCustomInputs');
+    if (range === 'custom') {
+        customInputs.classList.remove('hidden');
+    } else {
+        customInputs.classList.add('hidden');
+    }
+
+    renderOverview();
+};
+
+window.renderOverview = () => {
+    const container = document.getElementById('overviewList');
+    if (!container) return;
+
+    let events = state.allEvents || [];
+
+    // 1. Apply Source Filter (Reuse Global Filter)
+    events = events.filter(e => {
+        if (currentFilter === 'all') return true;
+        if (currentFilter === 'exchange') return e.source === 'exchange' || e.source === 'imported';
+        if (currentFilter === 'manual') return e.source === 'app';
+        return true;
+    });
+
+    // 2. Apply Time Range Filter
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    let startLimit, endLimit;
+
+    if (overviewRange === 'week') {
+        // Current Week (Mon-Sun)
+        const day = now.getDay() || 7; // 1=Mon, 7=Sun
+        if (day !== 1) now.setHours(-24 * (day - 1)); // Go back to Monday
+        startLimit = now.toISOString().split('T')[0];
+
+        const end = new Date(now);
+        end.setDate(end.getDate() + 6);
+        endLimit = end.toISOString().split('T')[0];
+
+    } else if (overviewRange === 'month') {
+        // Current Month
+        startLimit = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        endLimit = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+    } else if (overviewRange === 'year') {
+        // Current Year
+        startLimit = `${now.getFullYear()}-01-01`;
+        endLimit = `${now.getFullYear()}-12-31`;
+
+    } else if (overviewRange === 'custom') {
+        startLimit = document.getElementById('ovStart').value;
+        endLimit = document.getElementById('ovEnd').value;
+    }
+
+    // Expand Recurring for this range (Reuse logic? Or simpler approach?)
+    // Complex because recurring parsing logic is currently inside renderCalendar. 
+    // Ideally we should extract `expandEvents(events, start, end)` -> Refactor opportunity or duplicate simple expansion.
+    // The current renderCalendar expands infinitely for infinite scroll.
+    // Here we have a fixed range.
+
+    // IMPORTANT: For simplicity and reuse, let's call the same expansion logic BUT we need to extract it.
+    // For now, let's just filter the *already expanded* view if possible?
+    // state.allEvents only contains raw events.
+    // renderCalendar does the expansion.
+    // To support "Year" view efficiently, we need a robust expander.
+
+    // Let's implement a specific expander for Overview that fits the range.
+    const expanded = [];
+
+    events.forEach(evt => {
+        if (!evt.recurrence || evt.recurrence === 'none') {
+            const dateStr = (evt.start || '').split('T')[0];
+            // Simple logic: if in range
+            if ((!startLimit || dateStr >= startLimit) && (!endLimit || dateStr <= endLimit)) {
+                expanded.push(evt);
+            }
+        } else {
+            // Recurring Logic (Simplified for View)
+            let current = new Date(evt.start); // First occurrence
+            const endRec = evt.recurrenceEnd ? new Date(evt.recurrenceEnd) : null;
+            const limitDate = endLimit ? new Date(endLimit) : new Date(now.getFullYear() + 2, 0, 1);
+            const rangeStart = startLimit ? new Date(startLimit) : new Date(0);
+
+            // Avoid infinite loops
+            let loopCount = 0;
+            const MAX_LOOPS = 500;
+
+            const interval = parseInt(evt.recurrenceInterval || 1);
+
+            while (loopCount < MAX_LOOPS) {
+                const dStr = current.toISOString().split('T')[0];
+                const cDate = new Date(current);
+
+                if (cDate > limitDate) break;
+                if (endRec && cDate > endRec) break;
+
+                if (dStr >= (startLimit || '0000-00-00')) {
+                    // Clone and add
+                    const inst = { ...evt, start: current.toISOString().replace('.000Z', ''), _isRec: true }; // Basic iso fix
+                    // Fix instance time strings. 
+                    // evt.start is ISO "2025-01-01T10:00:00". We just need to update the Date part.
+                    const sH = new Date(evt.start).getHours().toString().padStart(2, '0');
+                    const sM = new Date(evt.start).getMinutes().toString().padStart(2, '0');
+                    inst.start = `${dStr}T${sH}:${sM}:00`;
+
+                    expanded.push(inst);
+                }
+
+                // Increment
+                if (evt.recurrence === 'daily') current.setDate(current.getDate() + interval);
+                if (evt.recurrence === 'weekly') current.setDate(current.getDate() + (7 * interval));
+                if (evt.recurrence === 'monthly') current.setMonth(current.getMonth() + interval);
+                if (evt.recurrence === 'yearly') current.setFullYear(current.getFullYear() + interval);
+
+                loopCount++;
+            }
+        }
+    });
+
+    expanded.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+
+    if (expanded.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-br-300">Keine Termine im Zeitraum</div>`;
+        return;
+    }
+
+    let html = `<div class="bg-br-800 rounded-xl overflow-hidden border border-br-600/50">`;
+    let lastDate = '';
+
+    expanded.forEach(e => {
+        const dateRaw = e.start.split('T')[0];
+        const dateObj = new Date(e.start);
+        const dateDisplay = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        const dayShort = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
+        const timeDisplay = e.isAllDay ? 'All Day' : dateObj.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+        const isNewDay = dateRaw !== lastDate;
+        lastDate = dateRaw;
+
+        const rowClass = isNewDay ? 'border-t border-br-700/50' : '';
+        const bgClass = e.source === 'exchange' ? 'text-purple-300' : 'text-blue-300';
+
+        // Compact Row
+        html += `
+        <div class="flex items-center p-3 hover:bg-white/5 transition-colors gap-3 ${rowClass}">
+            <div class="w-14 flex flex-col items-center leading-tight opacity-70">
+                <span class="text-[10px] uppercase font-bold text-br-400">${dayShort}</span>
+                <span class="text-xs font-mono text-br-200">${dateDisplay}</span>
+            </div>
+            
+            <div class="w-12 text-xs font-mono text-br-300 text-right">
+                ${timeDisplay}
+            </div>
+            
+            <div class="flex-grow min-w-0">
+                <div class="text-sm font-medium text-white truncate">${e.title}</div>
+                ${e.location ? `<div class="text-[10px] text-br-400 truncate">📍 ${e.location}</div>` : ''}
+            </div>
+
+            <div class="w-2 h-2 rounded-full ${e.source === 'exchange' ? 'bg-purple-500' : 'bg-blue-500'}"></div>
+        </div>
+        `;
+    });
+    html += `</div>`;
+
+    // Summary Footer
+    html += `<div class="text-center text-xs text-br-400 mt-2">${expanded.length} Termine gefunden</div>`;
+
+    container.innerHTML = html;
+}
 
 window.filterBySearch = (val) => {
     currentSearchTerm = val;

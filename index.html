@@ -287,6 +287,60 @@
     </div>
   </div>
 
+  <!-- Overview/Summary View (Initially Hidden) -->
+  <div id="overviewView" class="hidden w-full max-w-[95%] mx-auto pb-24">
+
+    <!-- Filter Toolbar for Overview -->
+    <div class="sticky top-[5.5rem] bg-br-900 z-30 py-2">
+      <div
+        class="flex gap-2 bg-br-800/80 p-1.5 rounded-xl border border-br-600/50 backdrop-blur overflow-x-auto no-scrollbar">
+        <button onclick="setOverviewRange('week')" id="ov-btn-week"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white shadow transition-all whitespace-nowrap">Woche</button>
+        <button onclick="setOverviewRange('month')" id="ov-btn-month"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Monat</button>
+        <button onclick="setOverviewRange('year')" id="ov-btn-year"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Jahr</button>
+        <button onclick="setOverviewRange('custom')" id="ov-btn-custom"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Benutzerdefiniert</button>
+      </div>
+
+      <!-- Custom Date Inputs -->
+      <div id="overviewCustomInputs"
+        class="hidden mt-2 flex gap-2 items-center bg-br-800/80 p-2 rounded-xl border border-br-600/50">
+        <input type="date" id="ovStart" class="bg-br-700 text-white px-2 py-1 rounded text-xs border border-br-600"
+          onchange="renderOverview()">
+        <span class="text-br-400">-</span>
+        <input type="date" id="ovEnd" class="bg-br-700 text-white px-2 py-1 rounded text-xs border border-br-600"
+          onchange="renderOverview()">
+      </div>
+    </div>
+
+    <!-- Overview Content -->
+    <div id="overviewList" class="space-y-4 mt-4">
+      <!-- Content injected via JS -->
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="fixed bottom-4 left-0 right-0 z-50 flex justify-center pointer-events-none">
+    <div
+      class="bg-br-800/90 backdrop-blur-xl border border-br-600/50 rounded-2xl shadow-2xl p-1.5 flex gap-1 pointer-events-auto">
+
+      <button onclick="switchView('calendar')" id="nav-btn-calendar"
+        class="flex flex-col items-center justify-center w-16 h-14 rounded-xl text-blue-400 bg-blue-500/10 transition-all active:scale-95 group">
+        <i class="ph-calendar-blank-bold text-2xl mb-1 group-hover:-translate-y-0.5 transition-transform"></i>
+        <span class="text-[10px] font-medium">Kalender</span>
+      </button>
+
+      <button onclick="switchView('overview')" id="nav-btn-overview"
+        class="flex flex-col items-center justify-center w-16 h-14 rounded-xl text-br-400 hover:text-br-200 transition-all active:scale-95 group">
+        <i class="ph-list-dashes-bold text-2xl mb-1 group-hover:-translate-y-0.5 transition-transform"></i>
+        <span class="text-[10px] font-medium">Übersicht</span>
+      </button>
+
+    </div>
+  </nav>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 
