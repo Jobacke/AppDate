@@ -293,7 +293,7 @@
     <!-- Filter Toolbar for Overview -->
     <div class="sticky top-[5.5rem] bg-br-900 z-30 py-2">
       <div
-        class="flex gap-2 bg-br-800/80 p-1.5 rounded-xl border border-br-600/50 backdrop-blur overflow-x-auto no-scrollbar">
+        class="flex gap-2 bg-br-800/80 p-1.5 rounded-xl border border-br-600/50 backdrop-blur overflow-x-auto no-scrollbar items-center">
         <button onclick="setOverviewRange('week')" id="ov-btn-week"
           class="px-4 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white shadow transition-all whitespace-nowrap">Woche</button>
         <button onclick="setOverviewRange('month')" id="ov-btn-month"
@@ -302,6 +302,17 @@
           class="px-4 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Jahr</button>
         <button onclick="setOverviewRange('custom')" id="ov-btn-custom"
           class="px-4 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Benutzerdefiniert</button>
+
+        <!-- Divider -->
+        <div class="w-px h-6 bg-br-600 mx-1 flex-shrink-0"></div>
+
+        <!-- Source Filters -->
+        <button onclick="setCalendarFilter('all')" id="ov-filter-btn-all"
+          class="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white shadow transition-all whitespace-nowrap">Alle</button>
+        <button onclick="setCalendarFilter('exchange')" id="ov-filter-btn-exchange"
+          class="px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Outlook</button>
+        <button onclick="setCalendarFilter('manual')" id="ov-filter-btn-manual"
+          class="px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">App</button>
       </div>
 
       <!-- Custom Date Inputs -->

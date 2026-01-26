@@ -332,16 +332,31 @@ function updateSelectionUI() {
 function setCalendarFilter(val) {
     currentFilter = val;
 
-    // Update Buttons UI
-    ['all', 'exchange', 'manual'].forEach(type => {
-        const btn = document.getElementById(`filter-btn-${type}`);
-        if (!btn) return;
+    const types = ['all', 'exchange', 'manual'];
 
-        if (type === val) {
-            btn.classList.add('bg-blue-600', 'text-white', 'shadow');
-            btn.classList.remove('text-br-300', 'hover:text-white', 'bg-transparent');
-        } else {
-            btn.className = "px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all";
+    // Update Main Header Buttons
+    types.forEach(type => {
+        const btn = document.getElementById(`filter-btn-${type}`);
+        if (btn) {
+            if (type === val) {
+                btn.classList.add('bg-blue-600', 'text-white', 'shadow');
+                btn.classList.remove('text-br-300', 'hover:text-white', 'bg-transparent');
+            } else {
+                btn.className = "px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all";
+            }
+        }
+    });
+
+    // Update Overview Toolbar Buttons
+    types.forEach(type => {
+        const btn = document.getElementById(`ov-filter-btn-${type}`);
+        if (btn) {
+            if (type === val) {
+                btn.classList.add('bg-blue-600', 'text-white', 'shadow');
+                btn.classList.remove('text-br-300', 'hover:text-white', 'bg-transparent');
+            } else {
+                btn.className = "px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all";
+            }
         }
     });
 
