@@ -82,13 +82,13 @@
 
             <button onclick="exportManualAppointments()" title="Manuelle Termine exportieren"
               class="p-1.5 text-white hover:bg-white/20 rounded transition-colors group flex items-center gap-1">
-              <span class="text-xs font-medium px-1">Export</span>
+              <span class="text-xs font-medium px-1 text-red-300">Export</span>
               <i class="ph-download-simple-bold text-lg group-hover:scale-110 transition-transform"></i>
             </button>
 
             <label title="Backup wiederherstellen"
               class="p-1.5 text-white hover:bg-white/20 rounded transition-colors cursor-pointer group flex items-center gap-1">
-              <span class="text-xs font-medium px-1">Import</span>
+              <span class="text-xs font-medium px-1 text-red-300">Import</span>
               <i class="ph-upload-simple-bold text-lg group-hover:scale-110 transition-transform"></i>
               <input type="file" accept=".json" class="hidden" onchange="handleBackupUpload(this)">
             </label>
@@ -106,7 +106,7 @@
             <label for="icsInput"
               class="p-1.5 text-white hover:bg-white/20 rounded transition-colors cursor-pointer group flex items-center gap-1"
               title="ICS Reset starten">
-              <span class="text-xs font-medium px-1">Reset / Import</span>
+              <span class="text-xs font-medium px-1 text-red-300">Reset / Import</span>
               <i class="ph-file-arrow-up-bold text-lg group-hover:scale-110 transition-transform"></i>
             </label>
             <input type="file" id="icsInput" accept=".ics" class="hidden" onchange="handleIcsUpload(this)">
