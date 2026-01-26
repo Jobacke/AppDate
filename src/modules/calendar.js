@@ -610,8 +610,11 @@ function renderCalendar() {
             // Pass evt.start (instance start) to edit
             const startParam = evt.start ? `'${evt.start}'` : 'null';
 
+            // Safely escape ID for onclick
+            const safeId = evt.id.replace(/'/g, "\\'");
+
             html += `<div class="p-4 rounded-xl border ${!isExchange ? 'bg-br-800 border-br-600 hover:border-blue-500 cursor-pointer' : 'bg-br-800/50 border-br-700 cursor-pointer hover:border-purple-500'} transition-all relative overflow-hidden group"
-                onclick="editAppointment('${evt.id}', ${startParam})">
+                onclick="window.editAppointment('${safeId}', ${startParam})">
                 ${isExchange ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-purple-500"></div>' : '<div class="absolute right-0 top-0 bottom-0 w-1 bg-blue-500"></div>'}
                 <div class="flex justify-between items-start">
                     <div>
