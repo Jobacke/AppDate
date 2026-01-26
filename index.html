@@ -112,6 +112,20 @@
             <input type="file" id="icsInput" accept=".ics" class="hidden" onchange="handleIcsUpload(this)">
           </div>
 
+          <!-- Selection Mode Toggle -->
+          <button onclick="toggleSelectionMode()" id="btnSelectionMode" title="Mehrfachauswahl"
+            class="bg-br-800 text-br-300 hover:text-white px-3 py-2.5 rounded-xl transition-colors border border-br-600/50 group relative">
+            <i class="ph-checks-bold text-xl"></i>
+            <span id="selectionCountBadge"
+              class="hidden absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-bold w-4 h-4 rounded-full items-center justify-center">0</span>
+          </button>
+
+          <!-- Delete Selected Button (Hidden by default) -->
+          <button id="btnDeleteSelected" onclick="deleteSelectedAppointments()"
+            class="hidden bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-red-500/20 flex items-center gap-2 transition-all animate-in fade-in zoom-in duration-200">
+            <i class="ph-trash-bold"></i>
+            <span class="hidden sm:inline">Löschen</span>
+          </button>
 
           <button onclick="openAddAppointmentModal()"
             class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-green-500/20 flex items-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]">

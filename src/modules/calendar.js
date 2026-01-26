@@ -46,10 +46,112 @@ let currentFilter = 'all';
 let currentSearchTerm = '';
 let initialScrollDone = false;
 
+// Selection Mode State
+let isSelectionMode = false;
+let selectedIds = new Set();
+
 window.filterBySearch = (val) => {
     currentSearchTerm = val;
     renderCalendar();
 };
+
+window.toggleSelectionMode = () => {
+    isSelectionMode = !isSelectionMode;
+    selectedIds.clear();
+    updateSelectionUI();
+    renderCalendar();
+};
+
+window.toggleEventSelection = (id) => { // id is a string
+    // Don't open edit modal if in selection mode!
+    // Handled by onclick logic in renderCalendar, but good to check.
+    if (!isSelectionMode) return;
+
+    if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+    } else {
+        selectedIds.add(id);
+    }
+    updateSelectionUI();
+    renderCalendar(); // Re-render to show checkbox state
+};
+
+window.deleteSelectedAppointments = async () => {
+    if (selectedIds.size === 0) return;
+
+    if (!confirm(`${selectedIds.size} Termine wirklich löschen?`)) return;
+
+    try {
+        const batch = db.batch();
+        let count = 0;
+
+        // We need to find the docs. Some are app, some are exchange.
+        // We can just try to delete from both collections if we don't know the source easily by ID alone
+        // OR we can look them up in state.
+
+        const allEvents = [...state.events.app, ...state.events.exchange];
+
+        selectedIds.forEach(id => {
+            const evt = allEvents.find(e => e.id === id);
+            if (!evt) return; // Should not happen
+
+            const collection = evt.source === 'exchange' ? 'exchange_events' : 'app_events';
+            const ref = db.collection(collection).doc(id);
+            batch.delete(ref);
+            count++;
+        });
+
+        await batch.commit();
+        alert(`✅ ${count} Termine gelöscht.`);
+
+        // Reset Mode
+        isSelectionMode = false;
+        selectedIds.clear();
+        updateSelectionUI();
+        // renderCalendar will be triggered by snapshot listener
+
+    } catch (e) {
+        console.error("Batch Delete Error:", e);
+        alert("Fehler beim Löschen: " + e.message);
+    }
+};
+
+function updateSelectionUI() {
+    const btn = document.getElementById('btnSelectionMode');
+    const badge = document.getElementById('selectionCountBadge');
+    const deleteBtn = document.getElementById('btnDeleteSelected');
+    const addBtn = document.querySelector('button[onclick="openAddAppointmentModal()"]'); // Find the green button
+
+    if (isSelectionMode) {
+        btn.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
+        btn.classList.remove('text-br-300');
+
+        if (addBtn) addBtn.classList.add('hidden'); // Hide Add button to make space/reduce confusion
+
+        if (selectedIds.size > 0) {
+            deleteBtn.classList.remove('hidden');
+            deleteBtn.classList.add('flex');
+            badge.textContent = selectedIds.size;
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+        } else {
+            deleteBtn.classList.add('hidden');
+            deleteBtn.classList.remove('flex');
+            badge.classList.add('hidden');
+            badge.classList.remove('flex');
+        }
+    } else {
+        btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-500');
+        btn.classList.add('text-br-300');
+
+        if (addBtn) addBtn.classList.remove('hidden');
+
+        deleteBtn.classList.add('hidden');
+        deleteBtn.classList.remove('flex');
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+    }
+}
 
 function setCalendarFilter(val) {
     currentFilter = val;
@@ -634,12 +736,40 @@ function renderCalendar() {
             const startParam = evt.start ? `'${evt.start}'` : 'null';
 
             // Safely escape ID for onclick
+            // Safely escape ID for onclick
             const safeId = evt.id.replace(/'/g, "\\'");
+            const isSelected = selectedIds.has(evt.id);
 
-            html += `<div class="p-4 rounded-xl border ${!isExchange ? 'bg-br-800 border-br-600 hover:border-blue-500 cursor-pointer' : 'bg-br-800/50 border-br-700 cursor-pointer hover:border-purple-500'} transition-all relative overflow-hidden group"
-                onclick="window.editAppointment('${safeId}', ${startParam})">
-                ${isExchange ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-purple-500"></div>' : '<div class="absolute right-0 top-0 bottom-0 w-1 bg-blue-500"></div>'}
-                <div class="flex justify-between items-start">
+            let clickAction, cardClass;
+            let selectionIndicator = '';
+
+            if (isSelectionMode) {
+                clickAction = `window.toggleEventSelection('${safeId}')`;
+
+                // Selection Style
+                if (isSelected) {
+                    cardClass = 'bg-blue-600/20 border-blue-500 ring-1 ring-blue-500 shadow-lg shadow-blue-500/10 cursor-pointer';
+                    selectionIndicator = `<div class="absolute right-4 top-4 text-blue-400 animate-in zoom-in spin-in-90 duration-200"><i class="ph-check-circle-fill text-2xl"></i></div>`;
+                } else {
+                    cardClass = 'bg-br-800 border-br-600 hover:bg-br-750 cursor-pointer opacity-80 hover:opacity-100';
+                    selectionIndicator = `<div class="absolute right-4 top-4 text-br-500"><i class="ph-circle text-2xl"></i></div>`;
+                }
+
+            } else {
+                // Normal Mode
+                clickAction = `window.editAppointment('${safeId}', ${startParam})`;
+
+                cardClass = !isExchange
+                    ? 'bg-br-800 border-br-600 hover:border-blue-500 cursor-pointer'
+                    : 'bg-br-800/50 border-br-700 cursor-pointer hover:border-purple-500';
+            }
+
+            html += `<div class="p-4 rounded-xl border ${cardClass} transition-all relative overflow-hidden group select-none"
+                onclick="${clickAction}">
+                
+                ${isSelectionMode ? selectionIndicator : (isExchange ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-purple-500"></div>' : '<div class="absolute right-0 top-0 bottom-0 w-1 bg-blue-500"></div>')}
+                
+                <div class="flex justify-between items-start ${isSelectionMode ? 'pr-8' : ''}">
                     <div>
                         <div class="font-medium text-white mb-1 flex items-center gap-2">
                              ${evt.title || 'Termin'}
