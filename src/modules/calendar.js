@@ -1,7 +1,7 @@
 import { state } from '../store.js';
 import { db, firebase } from '../config.js';
 
-const APP_VERSION = 'v1.2.4';
+const APP_VERSION = 'v1.2.5';
 
 export function initCalendar() {
     console.log("AppDate Version:", APP_VERSION);
@@ -814,14 +814,24 @@ function processEvents() {
             const sH = String(startObj.getHours()).padStart(2, '0');
             const sM = String(startObj.getMinutes()).padStart(2, '0');
 
-            // Duration
+            // Duration calculation
             const endObj = new Date(evt.end);
-            const duration = endObj - startObj; // ms
+            const duration = endObj.getTime() - startObj.getTime(); // ms
 
             const newStartIso = `${y}-${m}-${d}T${sH}:${sM}:00`;
             const newStartObj = new Date(newStartIso);
+
+            // Calculate new End by adding duration to new Start
             const newEndObj = new Date(newStartObj.getTime() + duration);
-            const newEndIso = newEndObj.toISOString().replace('.000Z', ''); // naive
+
+            // Convert to ISO string manually to preserve local time
+            const eY = newEndObj.getFullYear();
+            const eMo = String(newEndObj.getMonth() + 1).padStart(2, '0');
+            const eD = String(newEndObj.getDate()).padStart(2, '0');
+            const eH = String(newEndObj.getHours()).padStart(2, '0');
+            const eMi = String(newEndObj.getMinutes()).padStart(2, '0');
+
+            const newEndIso = `${eY}-${eMo}-${eD}T${eH}:${eMi}:00`;
 
             const instance = { ...evt, start: newStartIso, end: newEndIso, _isInstance: instances > 0 };
             const instanceKey = `${newStartIso.split('T')[0]}|${evt.title}`;
