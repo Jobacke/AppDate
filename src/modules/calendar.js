@@ -209,6 +209,7 @@ window.renderOverview = () => {
             <div class="flex-grow min-w-0">
                 <div class="text-sm font-medium text-white truncate">${e.title}</div>
                 ${e.location ? `<div class="text-[10px] text-br-400 truncate">📍 ${e.location}</div>` : ''}
+                ${(e.description && e.description.trim() !== '{') ? `<div class="text-[10px] text-br-500 truncate mt-0.5">${e.description}</div>` : ''}
             </div>
 
             <div class="w-2 h-2 rounded-full ${e.source === 'exchange' ? 'bg-purple-500' : 'bg-blue-500'}"></div>
