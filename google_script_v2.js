@@ -38,7 +38,7 @@ function processCalendarEmails() {
                         start: extract("start"),
                         end: extract("end"),
                         location: extract("location"),
-                        description: extract("description"),
+                        description: extract("description").replace(/^\{$/, ""),
                         Action: extract("Action") // Case sensitive match with Flow
                     };
 

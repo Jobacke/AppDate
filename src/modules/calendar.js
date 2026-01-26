@@ -1079,7 +1079,8 @@ function editAppointment(id, instanceStart) {
     document.getElementById('apptStart').value = start.toTimeString().substring(0, 5);
     document.getElementById('apptEnd').value = end.toTimeString().substring(0, 5);
     document.getElementById('apptLocation').value = evt.location || '';
-    document.getElementById('apptDescription').value = evt.description || '';
+    const cleanDesc = (evt.description || '').trim();
+    document.getElementById('apptDescription').value = cleanDesc === '{' ? '' : cleanDesc;
     document.getElementById('apptAllDay').checked = evt.isAllDay || false;
 
     // Recurrence
