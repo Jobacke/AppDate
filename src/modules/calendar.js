@@ -35,6 +35,7 @@ window.jumpToDate = jumpToDate;
 let exchangeUnsubscribe = null;
 let appUnsubscribe = null;
 let currentFilter = 'all';
+let initialScrollDone = false;
 
 function setCalendarFilter(val) {
     currentFilter = val;
@@ -547,6 +548,14 @@ function renderCalendar() {
         html = `<div class="p-8 text-center text-br-300"><p>Keine zukünftigen Termine</p></div>`;
     }
     container.innerHTML = html;
+
+    // Auto-Scroll to Today on first load
+    if (!initialScrollDone) {
+        setTimeout(() => {
+            jumpToToday();
+            initialScrollDone = true;
+        }, 300);
+    }
 }
 
 function formatEventTime(evt) {
