@@ -989,7 +989,7 @@ function renderCalendar() {
                         </div>
                     </div>
                 </div>
-                ${(evt.description && evt.description.trim() !== '{') ? `<div class="mt-2 text-xs text-br-400 line-clamp-2">${evt.description}</div>` : ''}
+                ${(evt.description && !/^[\s\{\}]+$/.test(evt.description)) ? `<div class="mt-2 text-xs text-br-400 line-clamp-2">${evt.description}</div>` : ''}
             </div>`;
         });
         html += `</div></div>`;
