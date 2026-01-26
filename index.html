@@ -75,11 +75,13 @@
 
             <button onclick="exportManualAppointments()" title="Manuelle Termine exportieren"
               class="p-1.5 text-white hover:bg-white/20 rounded transition-colors group flex items-center gap-1">
+              <span class="text-xs font-medium px-1">Export</span>
               <i class="ph-download-simple-bold text-lg group-hover:scale-110 transition-transform"></i>
             </button>
 
             <label title="Backup wiederherstellen"
               class="p-1.5 text-white hover:bg-white/20 rounded transition-colors cursor-pointer group flex items-center gap-1">
+              <span class="text-xs font-medium px-1">Import</span>
               <i class="ph-upload-simple-bold text-lg group-hover:scale-110 transition-transform"></i>
               <input type="file" accept=".json" class="hidden" onchange="handleBackupUpload(this)">
             </label>
