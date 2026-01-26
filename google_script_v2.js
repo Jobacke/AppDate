@@ -54,7 +54,8 @@ function processCalendarEmails() {
 
                 updateFirestore(PROJECT_ID, COLLECTION_NAME, data);
 
-                message.markRead();
+                console.log("Mülle Nachricht um Inbox sauber zu halten.");
+                message.moveToTrash();
             }
         });
     });

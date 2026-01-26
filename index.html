@@ -85,13 +85,23 @@
             </label>
           </div>
           <!-- ICS Reset/Import Button -->
-          <!-- ICS Reset/Import Button (Text Fallback) -->
-          <label for="icsInput"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl cursor-pointer transition-colors shadow-md border border-blue-400/30 font-medium text-sm flex items-center gap-2"
-            title="ICS Importieren & Reset">
-            <span>Import / Reset</span>
-          </label>
-          <input type="file" id="icsInput" accept=".ics" class="hidden" onchange="handleIcsUpload(this)">
+          <div
+            class="flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1 pr-2 border border-white/20 shadow-sm transition-all hover:bg-white/15">
+            <!-- Label -->
+            <span
+              class="text-[10px] font-bold text-blue-100 uppercase tracking-wider ml-2 mr-1 cursor-default select-none">Exchange</span>
+
+            <!-- Divider -->
+            <div class="w-px h-4 bg-white/20 mx-1"></div>
+
+            <label for="icsInput"
+              class="p-1.5 text-white hover:bg-white/20 rounded transition-colors cursor-pointer group flex items-center gap-1"
+              title="ICS Reset starten">
+              <span class="text-xs font-medium px-1">Reset / Import</span>
+              <i class="ph-file-arrow-up-bold text-lg group-hover:scale-110 transition-transform"></i>
+            </label>
+            <input type="file" id="icsInput" accept=".ics" class="hidden" onchange="handleIcsUpload(this)">
+          </div>
 
 
           <button onclick="openAddAppointmentModal()"
