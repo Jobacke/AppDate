@@ -32,6 +32,9 @@ window.setCalendarFilter = setCalendarFilter;
 window.jumpToToday = jumpToToday;
 window.jumpToDate = jumpToDate;
 
+window.exportManualAppointments = exportManualAppointments;
+window.handleBackupUpload = handleBackupUpload;
+
 let exchangeUnsubscribe = null;
 let appUnsubscribe = null;
 let currentFilter = 'all';
@@ -215,6 +218,90 @@ async function handleIcsUpload(input) {
     }
 }
 
+// === Manual Backup & Restore ===
+
+async function exportManualAppointments() {
+    try {
+        // Filter strictly for 'app' source events (manual)
+        const manualEvents = state.events.app.filter(e => e.source === 'app' || (!e.source && !e.type)); // fallback for legacy
+
+        if (manualEvents.length === 0) {
+            alert('Keine manuellen Termine zum Exportieren gefunden.');
+            return;
+        }
+
+        const dataStr = JSON.stringify(manualEvents, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
+        const exportFileDefaultName = `app-termine-backup-${new Date().toISOString().split('T')[0]}.json`;
+
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+
+        console.log(`Exported ${manualEvents.length} manual events.`);
+
+    } catch (e) {
+        console.error("Export Error:", e);
+        alert('Fehler beim Export: ' + e.message);
+    }
+}
+
+async function handleBackupUpload(input) {
+    if (!input.files || !input.files[0]) return;
+
+    const file = input.files[0];
+    if (!confirm(`Möchtest du das Backup "${file.name}" wiederherstellen?\nDies fügt die Termine zu den bestehenden hinzu.`)) {
+        input.value = '';
+        return;
+    }
+
+    try {
+        const text = await file.text();
+        const events = JSON.parse(text);
+
+        if (!Array.isArray(events)) throw new Error("Ungültiges Format (Kein Array)");
+
+        console.log(`Restoring ${events.length} events...`);
+
+        let restoredCount = 0;
+        const batch = db.batch();
+        let batchCount = 0;
+
+        for (const evt of events) {
+            // Sanitize: Remove ID (new doc), ensure source='app'
+            const { id, ...data } = evt;
+            data.source = 'app';
+            data.createdAt = new Date(); // Reset creation time or keep? Better reset to avoid confusion.
+
+            // Check essential fields
+            if (!data.title || !data.start) continue;
+
+            const docRef = db.collection('app_events').doc();
+            batch.set(docRef, data);
+
+            restoredCount++;
+            batchCount++;
+
+            // Firestore Batch limit is 500
+            if (batchCount >= 450) {
+                await batch.commit();
+                batchCount = 0;
+            }
+        }
+
+        if (batchCount > 0) await batch.commit();
+
+        alert(`✅ ${restoredCount} Termine erfolgreich wiederhergestellt.`);
+        input.value = '';
+
+    } catch (e) {
+        console.error("Restore Error:", e);
+        alert('Fehler beim Wiederherstellen: ' + e.message);
+        input.value = '';
+    }
+}
 // Helper to delete docs in batches of 400
 async function deleteInBatches(db, docs) {
     if (docs.length === 0) return;
