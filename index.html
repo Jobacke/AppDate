@@ -61,7 +61,7 @@
         <!-- Search -->
         <div class="relative group mr-2">
           <input type="text" id="calendarSearch" placeholder="Suchen..." oninput="filterBySearch(this.value)"
-            class="bg-br-800/80 border border-br-600/50 rounded-full pl-9 pr-4 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 w-10 focus:w-48 transition-all duration-300 shadow-inner group-hover:w-48 placeholder-transparent focus:placeholder-br-400">
+            class="bg-br-800/80 border border-br-600/50 rounded-full pl-9 pr-4 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 w-32 focus:w-48 transition-all duration-300 shadow-inner placeholder-br-400">
           <i class="ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-br-300 pointer-events-none"></i>
         </div>
 
@@ -114,8 +114,9 @@
 
           <!-- Selection Mode Toggle -->
           <button onclick="toggleSelectionMode()" id="btnSelectionMode" title="Mehrfachauswahl"
-            class="bg-br-800 text-br-300 hover:text-white px-3 py-2.5 rounded-xl transition-colors border border-br-600/50 group relative">
+            class="bg-br-800 text-br-300 hover:text-white px-3 py-2.5 rounded-xl transition-colors border border-br-600/50 group relative flex items-center gap-2">
             <i class="ph-checks-bold text-xl"></i>
+            <span class="text-sm font-medium">Auswahl</span>
             <span id="selectionCountBadge"
               class="hidden absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-bold w-4 h-4 rounded-full items-center justify-center">0</span>
           </button>
