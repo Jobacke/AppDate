@@ -610,8 +610,8 @@ function renderCalendar() {
             // Pass evt.start (instance start) to edit
             const startParam = evt.start ? `'${evt.start}'` : 'null';
 
-            html += `<div class="p-4 rounded-xl border ${!isExchange ? 'bg-br-800 border-br-600 hover:border-blue-500 cursor-pointer' : 'bg-br-800/50 border-br-700'} transition-all relative overflow-hidden group"
-                ${!isExchange ? `onclick="editAppointment('${evt.id}', ${startParam})"` : ''}>
+            html += `<div class="p-4 rounded-xl border ${!isExchange ? 'bg-br-800 border-br-600 hover:border-blue-500 cursor-pointer' : 'bg-br-800/50 border-br-700 cursor-pointer hover:border-purple-500'} transition-all relative overflow-hidden group"
+                onclick="editAppointment('${evt.id}', ${startParam})">
                 ${isExchange ? '<div class="absolute right-0 top-0 bottom-0 w-1 bg-purple-500"></div>' : '<div class="absolute right-0 top-0 bottom-0 w-1 bg-blue-500"></div>'}
                 <div class="flex justify-between items-start">
                     <div>
