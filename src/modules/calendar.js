@@ -1,7 +1,12 @@
 import { state } from '../store.js';
 import { db, firebase } from '../config.js';
 
+const APP_VERSION = 'v1.1.0-search';
+
 export function initCalendar() {
+    console.log("AppDate Version:", APP_VERSION);
+    document.querySelectorAll('.app-version-label').forEach(el => el.textContent = APP_VERSION);
+
     window.addAppointment = addAppointment;
     window.editAppointment = editAppointment;
     window.saveAppointmentEdit = saveAppointmentEdit;
@@ -38,7 +43,13 @@ window.handleBackupUpload = handleBackupUpload;
 let exchangeUnsubscribe = null;
 let appUnsubscribe = null;
 let currentFilter = 'all';
+let currentSearchTerm = '';
 let initialScrollDone = false;
+
+window.filterBySearch = (val) => {
+    currentSearchTerm = val;
+    renderCalendar();
+};
 
 function setCalendarFilter(val) {
     currentFilter = val;
@@ -552,8 +563,20 @@ function renderCalendar() {
         return;
     }
 
-    // Apply Filter
+    // Apply Filter & Search
     const filteredEvents = events.filter(e => {
+        // 1. Text Search Filter
+        if (currentSearchTerm) {
+            const term = currentSearchTerm.toLowerCase();
+            const title = (e.title || '').toLowerCase();
+            const desc = (e.description || '').toLowerCase();
+            const loc = (e.location || '').toLowerCase();
+            if (!title.includes(term) && !desc.includes(term) && !loc.includes(term)) {
+                return false; // Skip if no match
+            }
+        }
+
+        // 2. Category/Source Filter
         if (currentFilter === 'all') return true;
         if (currentFilter === 'exchange') return e.source === 'exchange' || e.source === 'imported';
         if (currentFilter === 'manual') return e.source === 'app';
