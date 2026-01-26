@@ -1,7 +1,7 @@
 import { state } from '../store.js';
 import { db, firebase } from '../config.js';
 
-const APP_VERSION = 'v1.2.3';
+const APP_VERSION = 'v1.2.4';
 
 export function initCalendar() {
     console.log("AppDate Version:", APP_VERSION);
@@ -123,9 +123,11 @@ window.renderOverview = () => {
     const container = document.getElementById('overviewList');
     if (!container) return;
 
+    // state.allEvents already contains EXPANDED instances from renderCalendar logic
+    // We just need to filter them by date range and category.
     let events = state.allEvents || [];
 
-    // 1. Apply Source Filter (Reuse Global Filter)
+    // 1. Apply Source Filter
     events = events.filter(e => {
         if (currentFilter === 'all') return true;
         if (currentFilter === 'exchange') return e.source === 'exchange' || e.source === 'imported';
@@ -135,26 +137,24 @@ window.renderOverview = () => {
 
     // 2. Apply Time Range Filter
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+
     let startLimit, endLimit;
 
     if (overviewRange === 'week') {
-        // Current Week (Mon-Sun)
-        const day = now.getDay() || 7; // 1=Mon, 7=Sun
-        if (day !== 1) now.setHours(-24 * (day - 1)); // Go back to Monday
-        startLimit = now.toISOString().split('T')[0];
+        const current = new Date(now);
+        const day = current.getDay() || 7;
+        if (day !== 1) current.setHours(-24 * (day - 1));
+        startLimit = current.toISOString().split('T')[0];
 
-        const end = new Date(now);
+        const end = new Date(current);
         end.setDate(end.getDate() + 6);
         endLimit = end.toISOString().split('T')[0];
 
     } else if (overviewRange === 'month') {
-        // Current Month
         startLimit = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         endLimit = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
     } else if (overviewRange === 'year') {
-        // Current Year
         startLimit = `${now.getFullYear()}-01-01`;
         endLimit = `${now.getFullYear()}-12-31`;
 
@@ -163,74 +163,17 @@ window.renderOverview = () => {
         endLimit = document.getElementById('ovEnd').value;
     }
 
-    // Expand Recurring for this range (Reuse logic? Or simpler approach?)
-    // Complex because recurring parsing logic is currently inside renderCalendar. 
-    // Ideally we should extract `expandEvents(events, start, end)` -> Refactor opportunity or duplicate simple expansion.
-    // The current renderCalendar expands infinitely for infinite scroll.
-    // Here we have a fixed range.
-
-    // IMPORTANT: For simplicity and reuse, let's call the same expansion logic BUT we need to extract it.
-    // For now, let's just filter the *already expanded* view if possible?
-    // state.allEvents only contains raw events.
-    // renderCalendar does the expansion.
-    // To support "Year" view efficiently, we need a robust expander.
-
-    // Let's implement a specific expander for Overview that fits the range.
-    const expanded = [];
-
-    events.forEach(evt => {
-        if (!evt.recurrence || evt.recurrence === 'none') {
-            const dateStr = (evt.start || '').split('T')[0];
-            // Simple logic: if in range
-            if ((!startLimit || dateStr >= startLimit) && (!endLimit || dateStr <= endLimit)) {
-                expanded.push(evt);
-            }
-        } else {
-            // Recurring Logic (Simplified for View)
-            let current = new Date(evt.start); // First occurrence
-            const endRec = evt.recurrenceEnd ? new Date(evt.recurrenceEnd) : null;
-            const limitDate = endLimit ? new Date(endLimit) : new Date(now.getFullYear() + 2, 0, 1);
-            const rangeStart = startLimit ? new Date(startLimit) : new Date(0);
-
-            // Avoid infinite loops
-            let loopCount = 0;
-            const MAX_LOOPS = 500;
-
-            const interval = parseInt(evt.recurrenceInterval || 1);
-
-            while (loopCount < MAX_LOOPS) {
-                const dStr = current.toISOString().split('T')[0];
-                const cDate = new Date(current);
-
-                if (cDate > limitDate) break;
-                if (endRec && cDate > endRec) break;
-
-                if (dStr >= (startLimit || '0000-00-00')) {
-                    // Clone and add
-                    const inst = { ...evt, start: current.toISOString().replace('.000Z', ''), _isRec: true }; // Basic iso fix
-                    // Fix instance time strings. 
-                    // evt.start is ISO "2025-01-01T10:00:00". We just need to update the Date part.
-                    const sH = new Date(evt.start).getHours().toString().padStart(2, '0');
-                    const sM = new Date(evt.start).getMinutes().toString().padStart(2, '0');
-                    inst.start = `${dStr}T${sH}:${sM}:00`;
-
-                    expanded.push(inst);
-                }
-
-                // Increment
-                if (evt.recurrence === 'daily') current.setDate(current.getDate() + interval);
-                if (evt.recurrence === 'weekly') current.setDate(current.getDate() + (7 * interval));
-                if (evt.recurrence === 'monthly') current.setMonth(current.getMonth() + interval);
-                if (evt.recurrence === 'yearly') current.setFullYear(current.getFullYear() + interval);
-
-                loopCount++;
-            }
-        }
+    // Filter by Date Range
+    const relevantEvents = events.filter(e => {
+        const dateStr = (e.start || '').split('T')[0];
+        if (startLimit && dateStr < startLimit) return false;
+        if (endLimit && dateStr > endLimit) return false;
+        return true;
     });
 
-    expanded.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+    relevantEvents.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
-    if (expanded.length === 0) {
+    if (relevantEvents.length === 0) {
         container.innerHTML = `<div class="p-8 text-center text-br-300">Keine Termine im Zeitraum</div>`;
         return;
     }
@@ -238,7 +181,7 @@ window.renderOverview = () => {
     let html = `<div class="bg-br-800 rounded-xl overflow-hidden border border-br-600/50">`;
     let lastDate = '';
 
-    expanded.forEach(e => {
+    relevantEvents.forEach(e => {
         const dateRaw = e.start.split('T')[0];
         const dateObj = new Date(e.start);
         const dateDisplay = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -275,10 +218,10 @@ window.renderOverview = () => {
     html += `</div>`;
 
     // Summary Footer
-    html += `<div class="text-center text-xs text-br-400 mt-2">${expanded.length} Termine gefunden</div>`;
+    html += `<div class="text-center text-xs text-br-400 mt-2">${relevantEvents.length} Termine gefunden</div>`;
 
     container.innerHTML = html;
-}
+};
 
 window.filterBySearch = (val) => {
     currentSearchTerm = val;
@@ -389,21 +332,25 @@ function updateSelectionUI() {
 function setCalendarFilter(val) {
     currentFilter = val;
 
-    // Update UI Buttons
+    // Update Buttons UI
     ['all', 'exchange', 'manual'].forEach(type => {
         const btn = document.getElementById(`filter-btn-${type}`);
-        if (btn) {
-            if (type === val) {
-                btn.classList.add('bg-blue-600', 'text-white', 'shadow');
-                btn.classList.remove('text-br-300');
-            } else {
-                btn.classList.remove('bg-blue-600', 'text-white', 'shadow');
-                btn.classList.add('text-br-300');
-            }
+        if (!btn) return;
+
+        if (type === val) {
+            btn.classList.add('bg-blue-600', 'text-white', 'shadow');
+            btn.classList.remove('text-br-300', 'hover:text-white', 'bg-transparent');
+        } else {
+            btn.className = "px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all";
         }
     });
 
-    renderCalendar();
+    // Render active view
+    if (currentView === 'overview') {
+        renderOverview();
+    } else {
+        renderCalendar();
+    }
 }
 
 // === Navigation ===
@@ -797,50 +744,43 @@ document.addEventListener('DOMContentLoaded', () => {
     if (recSelect) recSelect.addEventListener('change', toggleRecurrenceInput);
 });
 
-
-// Export new Delete functions
-window.deleteCurrentInstance = deleteCurrentInstance;
-window.deleteSeries = deleteSeries;
+// === Main Calendar View Logic ===
 
 function updateCalendarView() {
-    // 1. Deduplication & Expansion
-    const expandedMap = new Map(); // Key: "originalId|date" -> event
+    processEvents();
+}
+
+function processEvents() {
+    const expandedMap = new Map();
 
     const processEvent = (evt) => {
-        const key = `${evt.start.split('T')[0]}|${evt.title}`;
+        if (!evt.start) return;
 
-        // No recurrence or interval 0 (safety)
+        // Clean IDs for maps
+        const baseId = evt.id;
+
+        // If not recurring, just add once
         if (!evt.recurrence || evt.recurrence === 'none') {
+            const key = `${evt.start.split('T')[0]}|${evt.title}`;
+            // If duplicate exists (e.g. from sync overlap), overwrite or skip?
+            // With distinct IDs, map keys are distinct if ID used? 
+            // We use instance key for grouping.
             expandedMap.set(key, evt);
             return;
         }
 
-        const recurrence = evt.recurrence;
-        const interval = parseInt(evt.recurrenceInterval || 1, 10);
+        // Handle Recurrence
+        let currentDate = new Date(evt.start);
+        const recurrenceEnd = evt.recurrenceEnd ? new Date(evt.recurrenceEnd) : new Date(new Date().getFullYear() + 2, 0, 1);
 
-        const startDate = new Date(evt.start);
-        const endDateLimit = evt.recurrenceEnd ? new Date(evt.recurrenceEnd) : new Date(new Date().setFullYear(new Date().getFullYear() + 1));
-
+        // Limit infinite loops
         let instances = 0;
-        let currentDate = new Date(startDate);
+        const maxInstances = 365 * 2; // ~2 years daily
 
-        // Lock Update Logic:
-        // Identify Start Time and End Time (HH:MM) from original to avoid drift.
-        const sH = String(startDate.getHours()).padStart(2, '0');
-        const sM = String(startDate.getMinutes()).padStart(2, '0');
+        const recurrence = evt.recurrence;
+        const interval = parseInt(evt.recurrenceInterval || 1);
 
-        const origEnd = new Date(evt.end);
-        const eH = String(origEnd.getHours()).padStart(2, '0');
-        const eM = String(origEnd.getMinutes()).padStart(2, '0');
-
-        // Calculate Day Span (how many days after start does it end?)
-        // We use UTC date diff to avoid DST mess
-        const utcStartInfo = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-        const utcEndInfo = Date.UTC(origEnd.getFullYear(), origEnd.getMonth(), origEnd.getDate());
-        const daySpan = Math.round((utcEndInfo - utcStartInfo) / (1000 * 60 * 60 * 24));
-
-        // Safety: Max 500 instances
-        while (currentDate <= endDateLimit && instances < 500) {
+        while (currentDate <= recurrenceEnd && instances < maxInstances) {
             const y = currentDate.getFullYear();
             const m = String(currentDate.getMonth() + 1).padStart(2, '0');
             const d = String(currentDate.getDate()).padStart(2, '0');
@@ -854,15 +794,19 @@ function updateCalendarView() {
             }
 
             // Construct Start
-            const newStartIso = `${y}-${m}-${d}T${sH}:${sM}:00`;
+            // Keep original hours/minutes
+            const startObj = new Date(evt.start);
+            const sH = String(startObj.getHours()).padStart(2, '0');
+            const sM = String(startObj.getMinutes()).padStart(2, '0');
 
-            // Construct End (Day + Span)
-            const endDateRef = new Date(currentDate);
-            endDateRef.setDate(endDateRef.getDate() + daySpan);
-            const yE = endDateRef.getFullYear();
-            const mE = String(endDateRef.getMonth() + 1).padStart(2, '0');
-            const dE = String(endDateRef.getDate()).padStart(2, '0');
-            const newEndIso = `${yE}-${mE}-${dE}T${eH}:${eM}:00`;
+            // Duration
+            const endObj = new Date(evt.end);
+            const duration = endObj - startObj; // ms
+
+            const newStartIso = `${y}-${m}-${d}T${sH}:${sM}:00`;
+            const newStartObj = new Date(newStartIso);
+            const newEndObj = new Date(newStartObj.getTime() + duration);
+            const newEndIso = newEndObj.toISOString().replace('.000Z', ''); // naive
 
             const instance = { ...evt, start: newStartIso, end: newEndIso, _isInstance: instances > 0 };
             const instanceKey = `${newStartIso.split('T')[0]}|${evt.title}`;
@@ -878,7 +822,13 @@ function updateCalendarView() {
     allSources.forEach(processEvent);
 
     state.allEvents = Array.from(expandedMap.values());
-    renderCalendar();
+
+    // Auto-update view if in overview mode
+    if (currentView === 'overview') {
+        renderOverview();
+    } else {
+        renderCalendar();
+    }
 }
 
 function incrementDate(date, recurrence, interval) {
@@ -968,7 +918,6 @@ function renderCalendar() {
             // Pass evt.start (instance start) to edit
             const startParam = evt.start ? `'${evt.start}'` : 'null';
 
-            // Safely escape ID for onclick
             // Safely escape ID for onclick
             const safeId = evt.id.replace(/'/g, "\\'");
             const isSelected = selectedIds.has(evt.id);
@@ -1119,18 +1068,19 @@ function editAppointment(id, instanceStart) {
     if (isRecurring) {
         document.getElementById('btnDeleteAppt').classList.add('hidden');
         document.getElementById('btnGroupRecurringDelete').classList.remove('hidden');
+        document.getElementById('btnGroupRecurringDelete').classList.add('flex');
     } else {
         document.getElementById('btnDeleteAppt').classList.remove('hidden');
         document.getElementById('btnGroupRecurringDelete').classList.add('hidden');
+        document.getElementById('btnGroupRecurringDelete').classList.remove('flex');
     }
-
     document.getElementById('modalTitleAppt').textContent = '✏️ Termin bearbeiten';
 }
 
 async function saveAppointmentEdit() {
-    const id = state.editingAppointmentId;
+    const id = document.getElementById('apptId').value;
     const title = document.getElementById('apptTitle').value;
-    const date = document.getElementById('apptDate').value;
+    const dateStr = document.getElementById('apptDate').value;
     const startTime = document.getElementById('apptStart').value;
     const endTime = document.getElementById('apptEnd').value;
     const location = document.getElementById('apptLocation').value;
@@ -1139,23 +1089,16 @@ async function saveAppointmentEdit() {
 
     // Recurrence
     const recurrence = document.getElementById('apptRecurrence').value;
-    const recurrenceInterval = document.getElementById('apptRecurrenceInterval').value;
     const recurrenceEnd = document.getElementById('apptRecurrenceEnd').value;
+    const recurrenceInterval = document.getElementById('apptRecurrenceInterval').value;
 
-    if (!title || !date) {
-        alert('❌ Bitte Titel und Datum angeben');
+    if (!title || !dateStr) {
+        alert('Bitte Titel und Datum ausfüllen.');
         return;
     }
 
-    const startIso = `${date}T${startTime}:00`;
-    const endIso = `${date}T${endTime}:00`;
-
-    // Source handling
-    let source = 'app';
-    if (id) {
-        const existing = state.events.app.find(e => e.id === id) || state.events.exchange.find(e => e.id === id);
-        if (existing) source = existing.source;
-    }
+    const startIso = `${dateStr}T${startTime}:00`;
+    const endIso = `${dateStr}T${endTime}:00`;
 
     const data = {
         title,
@@ -1165,95 +1108,119 @@ async function saveAppointmentEdit() {
         description,
         isAllDay,
         recurrence,
-        recurrenceInterval: parseInt(recurrenceInterval || 1, 10),
         recurrenceEnd,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        source
+        recurrenceInterval,
+        source: 'app', // Always app for edits
+        updatedAt: new Date()
     };
 
     try {
         if (id) {
-            await db.collection(source === 'exchange' ? 'exchange_events' : 'app_events').doc(id).update(data);
+            // Check if Exchange - if so, we create a COPY in app_events (Shadow) or just "edit" it by creating a new doc?
+            // User requested ability to edit Exchange. Since we can't write to Outlook, we should save it as an App event 
+            // and maybe hide the original? Or simple: Just overwrite in app_events (if it was exch, we create new doc).
+
+            // To simplify: If it's an existing App event, update.
+            // If it's Exchange, we can't really "edit" it unless we duplicate it.
+            // But let's assume we just update the doc if it exists in app_events.
+
+            // Check if it exists in app_events
+            const appDoc = await db.collection('app_events').doc(id).get();
+            if (appDoc.exists) {
+                await db.collection('app_events').doc(id).update(data);
+            } else {
+                // It was Exchange (or imported). We create a new App Event?
+                // But wait, the ID is from Exchange.
+                // We can't overwrite Exchange ID in App collection easily.
+                // Ideally: Create new App Event, user manually deletes old Exchange?
+                // Or: We treat it as a new event.
+                // To avoid complexity: Create NEW event, user has to delete the other one if they want.
+                // BUT: User clicked "Edit".
+                // Let's create a NEW doc with new ID.
+                await db.collection('app_events').add(data);
+                // Optional: Delete the "old" one? If it was Exchange, we can delete the local copy? 
+                // We already implemented delete for Exchange events (local delete).
+                await db.collection('exchange_events').doc(id).delete();
+            }
         } else {
-            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            // New
+            data.createdAt = new Date();
             await db.collection('app_events').add(data);
         }
         closeEditAppointmentModal();
     } catch (e) {
-        console.error(e);
-        alert('❌ Fehler beim Speichern: ' + e.message);
+        console.error("Save Error:", e);
+        alert('Fehler beim Speichern: ' + e.message);
     }
 }
 
 async function deleteAppointment() {
     const id = state.editingAppointmentId;
-    console.log("Start delete flow for ID:", id);
+    if (!id) return;
+    if (!confirm('Termin wirklich löschen?')) return;
 
-    if (!id) {
-        console.log("No ID found. Cannot delete.");
-        return;
-    }
-
-    // Explicitly removed confirm() to fix blocking issue.
-    console.log("Proceeding with delete (no confirm dialog).");
-    console.log("User confirmed delete (assumed).");
-
-    // Bruteforce: Delete from BOTH collections to be sure.
-    // Deleting a non-existent doc is not an error in Firestore.
     try {
-        console.log("Deleting from app_events...");
-        const p1 = db.collection('app_events').doc(id).delete();
+        // Try Delete from both (cleaner)
+        // If it exists in app:
+        await db.collection('app_events').doc(id).delete();
+        // If it exists in exchange:
+        await db.collection('exchange_events').doc(id).delete();
 
-        console.log("Deleting from exchange_events...");
-        const p2 = db.collection('exchange_events').doc(id).delete();
-
-        await Promise.all([p1, p2]);
-
-        console.log("Deleted from DB (bruteforce check both tables). Success.");
         closeEditAppointmentModal();
     } catch (e) {
         console.error("Delete Error:", e);
-        alert('❌ Fehler beim Löschen: ' + e.message);
     }
 }
 
-function closeEditAppointmentModal() {
-    document.getElementById('editAppointmentModal').classList.add('hidden');
-    document.getElementById('editAppointmentModal').classList.remove('flex');
-    state.editingAppointmentId = null;
+// Handling Recurring Deletion
+async function deleteCurrentInstance() {
+    const id = state.editingAppointmentId;
+    const date = state.editingInstanceDate; // YYYY-MM-DD
+    if (!id || !date) return;
+
+    // We add this date to "excludedDates" array of the master event
+    try {
+        const docRef = db.collection('app_events').doc(id);
+        const doc = await docRef.get();
+        if (doc.exists) {
+            const data = doc.data();
+            const excluded = data.excludedDates || [];
+            excluded.push(date);
+            await docRef.update({ excludedDates: excluded });
+            closeEditAppointmentModal();
+            return;
+        }
+
+        // Exchange? We can basically do the same if we treat Exchange events as "local" docs now (since we have write access to the collection).
+        const exRef = db.collection('exchange_events').doc(id);
+        const exDoc = await exRef.get();
+        if (exDoc.exists) {
+            const data = exDoc.data();
+            const excluded = data.excludedDates || [];
+            excluded.push(date);
+            await exRef.update({ excludedDates: excluded });
+            closeEditAppointmentModal();
+        }
+
+    } catch (e) {
+        console.error("Instance Delete Error:", e);
+    }
 }
 
 async function deleteSeries() {
-    // Alias to standard delete (which deletes the main doc)
+    // Same as deleteAppointment essentially
     deleteAppointment();
 }
 
-async function deleteCurrentInstance() {
-    const id = state.editingAppointmentId;
-    const dateStr = state.editingInstanceDate;
-
-    if (!id || !dateStr) return;
-
-    // We assume user clicked "Nur diesen", so we proceed.
-
-    try {
-        const evt = state.events.app.find(e => e.id === id);
-        if (!evt) throw new Error("Event not found");
-
-        const excluded = evt.excludedDates || [];
-        if (!excluded.includes(dateStr)) {
-            excluded.push(dateStr);
-        }
-
-        await db.collection('app_events').doc(id).update({
-            excludedDates: excluded,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        console.log(`Removed instance ${dateStr} from series ${id}`);
-        closeEditAppointmentModal();
-    } catch (e) {
-        console.error(e);
-        alert("Fehler beim Löschen der Instanz: " + e.message);
-    }
+function closeEditAppointmentModal() {
+    document.getElementById('editAppointmentModal').classList.remove('flex');
+    document.getElementById('editAppointmentModal').classList.add('hidden');
 }
+
+// === Reset Functions ===
+// (Called from HTML)
+window.executeReset = async () => {
+    // ... not implemented directly here, logic is inside handleIcsUpload internal flow
+    // Reuse handleIcsUpload logic or just UI?
+    // Actually the button in UI triggers handleIcsUpload which triggers the UI flow.
+};
