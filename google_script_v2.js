@@ -1,5 +1,5 @@
 function processCalendarEmails() {
-    const SEARCH_QUERY = 'subject:AppDate is:unread';
+    const SEARCH_QUERY = 'subject:AppDate is:unread in:inbox -in:trash -in:drafts';
     const SECRET_TOKEN = 'AppDate123'; // Muss mit Flow übereinstimmen
 
     // Konfiguration für Firestore
@@ -12,50 +12,64 @@ function processCalendarEmails() {
     threads.forEach(thread => {
         const messages = thread.getMessages();
         messages.forEach(message => {
-            if (message.isUnread()) {
-                console.log("------------------------------------------");
-                console.log("Verarbeite: " + message.getSubject());
+            try {
+                if (message.isUnread()) {
+                    console.log("------------------------------------------");
+                    console.log("Verarbeite: " + message.getSubject());
 
-                let body = message.getPlainBody() || message.getBody();
-                body = body.replace(/[\r\n\t]/g, " ");
+                    let body = message.getPlainBody() || message.getBody();
+                    body = body.replace(/[\r\n\t]/g, " ");
 
-                if (body.indexOf(SECRET_TOKEN) === -1) {
-                    console.log("⚠️ Kein Secret Token. Skip.");
-                    return;
+                    if (body.indexOf(SECRET_TOKEN) === -1) {
+                        console.log("⚠️ Kein Secret Token. Skip.");
+                        return;
+                    }
+
+                    // Parser Helper
+                    const extract = (key) => {
+                        const regex = new RegExp(`"${key}"\\s*:\\s*"(.*?)"`);
+                        const match = body.match(regex);
+                        return match ? match[1] : "";
+                    };
+
+                    const data = {
+                        id: extract("id"), // WICHTIG: ID aus Outlook
+                        title: extract("title"),
+                        start: extract("start"),
+                        end: extract("end"),
+                        location: extract("location"),
+                        description: extract("description"),
+                        Action: extract("Action") // Case sensitive match with Flow
+                    };
+
+                    // Fallback ID wenn keine im JSON (hash aus start+title)
+                    if (!data.id) {
+                        data.id = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, (data.start + data.title)));
+                        console.log("⚠️ Keine ID empfangen. Generiere Hash-ID: " + data.id);
+                    }
+
+                    // Titel Fallback
+                    if (!data.title) {
+                        data.title = message.getSubject().replace("AppDate", "").trim() || "Unbenannter Termin";
+                    }
+
+                    updateFirestore(PROJECT_ID, COLLECTION_NAME, data);
+
+                    console.log("🗑️ Nachricht verarbeitet -> Lösche permanent.");
+
+                    // HINWEIS: Um Nachrichten permanent zu löschen, muss der "Gmail API" Dienst aktiviert werden!
+                    // Gehe im Apps Script Editor links auf "Dienste" (+) -> Wähle "Gmail API" -> Hinzufügen.
+                    try {
+                        Gmail.Users.Messages.remove('me', message.getId());
+                        console.log("✅ Permanent gelöscht.");
+                    } catch (e) {
+                        console.error("❌ Fehler beim permanenten Löschen (Gmail API aktiviert?): " + e.message);
+                        console.log("Fallback: Verschiebe in Papierkorb.");
+                        message.moveToTrash();
+                    }
                 }
-
-                // Parser Helper
-                const extract = (key) => {
-                    const regex = new RegExp(`"${key}"\\s*:\\s*"(.*?)"`);
-                    const match = body.match(regex);
-                    return match ? match[1] : "";
-                };
-
-                const data = {
-                    id: extract("id"), // WICHTIG: ID aus Outlook
-                    title: extract("title"),
-                    start: extract("start"),
-                    end: extract("end"),
-                    location: extract("location"),
-                    description: extract("description"),
-                    Action: extract("Action") // Case sensitive match with Flow
-                };
-
-                // Fallback ID wenn keine im JSON (hash aus start+title)
-                if (!data.id) {
-                    data.id = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, (data.start + data.title)));
-                    console.log("⚠️ Keine ID empfangen. Generiere Hash-ID: " + data.id);
-                }
-
-                // Titel Fallback
-                if (!data.title) {
-                    data.title = message.getSubject().replace("AppDate", "").trim() || "Unbenannter Termin";
-                }
-
-                updateFirestore(PROJECT_ID, COLLECTION_NAME, data);
-
-                console.log("Mülle Nachricht um Inbox sauber zu halten.");
-                message.moveToTrash();
+            } catch (err) {
+                console.error("❌ Kritischer Fehler beim Verarbeiten einer Nachricht: " + err.message);
             }
         });
     });
