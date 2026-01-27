@@ -38,9 +38,17 @@ function processCalendarEmails() {
                         start: extract("start"),
                         end: extract("end"),
                         location: extract("location"),
-                        description: extract("description").replace(/^\{$/, ""),
+                        description: extract("description").replace(/\{/g, "").trim(),
                         Action: extract("Action") // Case sensitive match with Flow
                     };
+
+                    // Auto-Tagging für App Filter
+                    // Wenn [App] im Titel oder Beschreibung, setze Flag
+                    if ((data.title && data.title.includes('[App]')) || (data.description && data.description.includes('[App]'))) {
+                        data.isAppRelevant = true;
+                        // Clean tags from title for cleaner display
+                        if (data.title) data.title = data.title.replace('[App]', '').trim();
+                    }
 
                     // Fallback ID wenn keine im JSON (hash aus start+title)
                     if (!data.id) {
@@ -116,7 +124,8 @@ function updateFirestore(projectId, collection, data) {
             "end": { "stringValue": data.end },
             "location": { "stringValue": data.location },
             "source": { "stringValue": "exchange" },
-            "description": { "stringValue": data.description }
+            "description": { "stringValue": data.description },
+            "isAppRelevant": { "booleanValue": !!data.isAppRelevant }
         }
     };
 

@@ -1,7 +1,7 @@
 import { state } from '../store.js';
 import { db, firebase } from '../config.js';
 
-const APP_VERSION = 'v1.2.5';
+const APP_VERSION = 'v1.2.6-DEBUG';
 
 export function initCalendar() {
     console.log("AppDate Version:", APP_VERSION);
@@ -131,7 +131,7 @@ window.renderOverview = () => {
     events = events.filter(e => {
         if (currentFilter === 'all') return true;
         if (currentFilter === 'exchange') return e.source === 'exchange' || e.source === 'imported';
-        if (currentFilter === 'manual') return e.source === 'app';
+        if (currentFilter === 'manual') return e.source === 'app' || ((e.source === 'exchange' || e.source === 'imported') && e.isAppRelevant);
         return true;
     });
 
@@ -890,7 +890,7 @@ function renderCalendar() {
         // 2. Category/Source Filter
         if (currentFilter === 'all') return true;
         if (currentFilter === 'exchange') return e.source === 'exchange' || e.source === 'imported';
-        if (currentFilter === 'manual') return e.source === 'app';
+        if (currentFilter === 'manual') return e.source === 'app' || ((e.source === 'exchange' || e.source === 'imported') && e.isAppRelevant);
         return true;
     });
 
@@ -1044,6 +1044,10 @@ function openAddAppointmentModal() {
     document.getElementById('apptRecurrenceEnd').value = '';
     toggleRecurrenceInput();
 
+    // Reset App Relevant Checkbox
+    document.getElementById('exchangeOptions').classList.add('hidden');
+    document.getElementById('apptIsAppRelevant').checked = false;
+
     // Show standard delete hidden (it's new)
     document.getElementById('btnDeleteAppt').classList.add('hidden');
     document.getElementById('btnGroupRecurringDelete').classList.add('hidden');
@@ -1101,7 +1105,31 @@ function editAppointment(id, instanceStart) {
         document.getElementById('btnGroupRecurringDelete').classList.add('hidden');
         document.getElementById('btnGroupRecurringDelete').classList.remove('flex');
     }
-    document.getElementById('modalTitleAppt').textContent = '✏️ Termin bearbeiten';
+    // Exchange Options (ALWAYS SHOW for validation - user requested fix)
+    const exchangeOptions = document.getElementById('exchangeOptions');
+    const isAppRelevantInput = document.getElementById('apptIsAppRelevant');
+
+    // Always unhide
+    exchangeOptions.classList.remove('hidden');
+
+    if (evt.source === 'exchange' || evt.source === 'imported') {
+        // Outlook Event
+        isAppRelevantInput.disabled = false;
+        isAppRelevantInput.checked = evt.isAppRelevant || false;
+        document.querySelector('label[for="apptIsAppRelevant"]').textContent = "Auch in App Filter anzeigen";
+        document.querySelector('#exchangeOptions p').textContent = 'Dieser Outlook-Termin erscheint dann auch im lokalen "App"-Filter.';
+    } else {
+        // App Event (Native)
+        // It is inherently "App Relevant". Maybe user wants to exclude it? 
+        // For now, let's just Show it as checked and disabled to indicate "It IS in App".
+        isAppRelevantInput.checked = true;
+        isAppRelevantInput.disabled = true;
+        document.querySelector('label[for="apptIsAppRelevant"]').textContent = "In App Filter aktiv";
+        document.querySelector('#exchangeOptions p').textContent = 'Standard-Termine sind immer im App-Filter sichtbar.';
+    }
+
+    // DEBUG: Show Source in Title
+    document.getElementById('modalTitleAppt').textContent = `✏️ Termin bearbeiten (${evt.source})`;
 }
 
 async function saveAppointmentEdit() {
@@ -1137,37 +1165,50 @@ async function saveAppointmentEdit() {
         recurrence,
         recurrenceEnd,
         recurrenceInterval,
-        source: 'app', // Always app for edits
         updatedAt: new Date()
     };
+
+    // Determine Source & Handling
+    let originalEvent = null;
+    if (id) {
+        originalEvent = state.events.app.find(e => e.id === id) || state.events.exchange.find(e => e.id === id);
+    }
+
+    if (originalEvent && (originalEvent.source === 'exchange' || originalEvent.source === 'imported')) {
+        // Keep original source (don't convert to 'app' blue)
+        data.source = originalEvent.source;
+        // Add the flag
+        const isAppRelevant = document.getElementById('apptIsAppRelevant').checked;
+        data.isAppRelevant = isAppRelevant;
+    } else {
+        // Default manual or new
+        data.source = 'app';
+    }
 
     try {
         if (id) {
             // Check if Exchange - if so, we create a COPY in app_events (Shadow) or just "edit" it by creating a new doc?
             // User requested ability to edit Exchange. Since we can't write to Outlook, we should save it as an App event 
             // and maybe hide the original? Or simple: Just overwrite in app_events (if it was exch, we create new doc).
-
             // To simplify: If it's an existing App event, update.
             // If it's Exchange, we can't really "edit" it unless we duplicate it.
             // But let's assume we just update the doc if it exists in app_events.
 
-            // Check if it exists in app_events
-            const appDoc = await db.collection('app_events').doc(id).get();
-            if (appDoc.exists) {
-                await db.collection('app_events').doc(id).update(data);
+            // Check if it is an Exchange event
+            const isExchange = state.events.exchange.some(e => e.id === id);
+
+            if (isExchange) {
+                // Update Exchange Event in Place
+                await db.collection('exchange_events').doc(id).update(data);
             } else {
-                // It was Exchange (or imported). We create a new App Event?
-                // But wait, the ID is from Exchange.
-                // We can't overwrite Exchange ID in App collection easily.
-                // Ideally: Create new App Event, user manually deletes old Exchange?
-                // Or: We treat it as a new event.
-                // To avoid complexity: Create NEW event, user has to delete the other one if they want.
-                // BUT: User clicked "Edit".
-                // Let's create a NEW doc with new ID.
-                await db.collection('app_events').add(data);
-                // Optional: Delete the "old" one? If it was Exchange, we can delete the local copy? 
-                // We already implemented delete for Exchange events (local delete).
-                await db.collection('exchange_events').doc(id).delete();
+                // App or Imported Event Update
+                const appDoc = await db.collection('app_events').doc(id).get();
+                if (appDoc.exists) {
+                    await db.collection('app_events').doc(id).update(data);
+                } else {
+                    // Fallback
+                    await db.collection('app_events').add(data);
+                }
             }
         } else {
             // New
