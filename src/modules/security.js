@@ -19,6 +19,14 @@ export function initSecurity() {
     window.cancelPinAction = cancelPinAction;
     window.clearPinDigit = clearPinDigit;
 
+    // Bind Security Button
+    const btnSecurity = document.getElementById('btnSecurity');
+    if (btnSecurity) {
+        btnSecurity.addEventListener('click', openSecuritySettings);
+    } else {
+        console.warn('Security button not found in DOM');
+    }
+
     // Bind Keypad clicks (using data attributes)
     document.querySelectorAll('.pin-key').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -30,8 +38,6 @@ export function initSecurity() {
     // Check Lock State
     if (hasPin()) {
         showLockScreen();
-    } else {
-        // App is open
     }
 }
 
