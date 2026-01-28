@@ -1,28 +1,32 @@
 import { auth } from '../config.js';
 import { state } from '../store.js';
-import { subscribeCalendar } from './calendar.js';
+import { subscribeCalendar, unsubscribeCalendar } from './calendar.js';
 import { checkLockRequirement } from './security.js';
 
 export function initAuth() {
-    // Auto-login anonymously to ensure Firestore access without user interaction
-    auth.signInAnonymously().catch(error => {
-        console.error("Anonymous login failed", error);
-    });
-
+    // Monitor Auth State
     auth.onAuthStateChanged(async user => {
         if (user) {
+            console.log("User authenticated:", user.uid);
             state.currentUser = user;
 
-            // Sync check for PIN requirement
+            // Critical: Check if this user needs a PIN lock
+            // This function checks Firestore and shows the lock screen if a PIN hash exists.
             await checkLockRequirement();
 
-            // Afterward, we can ensure the app is visible (unless locked by checkLockRequirement logic which shows overlay)
+            // Make the main app container visible.
+            // If locked, the #lockScreen overlay (z-index 100) will cover it.
             const app = document.getElementById('app');
             if (app) app.classList.remove('hidden');
 
             subscribeCalendar();
         } else {
-            // Should not happen with anonymous login
+            console.log("User not logged in.");
+            state.currentUser = null;
+            unsubscribeCalendar();
+
+            // If not logged in, we rely on anonymous login or explicit login flow.
+            // But usually anonymous login kicks in automatically if enabled.
         }
     });
 }

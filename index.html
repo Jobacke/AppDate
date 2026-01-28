@@ -21,7 +21,7 @@
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-xl font-bold flex items-center gap-2 text-white">
           <span class="text-2xl">📅</span>
-          AppDate <span class="text-xs text-blue-200 ml-2 opacity-70 app-version-label">v1.4.0</span>
+          AppDate <span class="text-xs text-blue-200 ml-2 opacity-70 app-version-label">v1.4.1</span>
         </h1>
 
         <!-- Status / Sync Indicator -->
@@ -452,15 +452,10 @@
           <div class="bg-blue-900/10 border border-blue-500/10 p-3 rounded-xl mb-4">
             <div class="flex gap-3 items-start">
               <i class="ph-info text-blue-400 mt-0.5"></i>
-              <p class="text-xs text-br-300">Der PIN wird nur lokal in diesem Browser gespeichert. Wenn du deine
-                Browserdaten löschst, wird auch der PIN entfernt.</p>
+              <p class="text-xs text-br-300">Der PIN schützt die App serverseitig. Zugriff ist nur mit diesem PIN
+                möglich.</p>
             </div>
           </div>
-
-          <button onclick="startPinSetup()"
-            class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 transition-all">
-            PIN erstellen
-          </button>
         </div>
 
         <!-- If PIN IS set -->
@@ -471,7 +466,7 @@
             </div>
             <div>
               <p class="text-sm font-bold text-white">App ist geschützt</p>
-              <p class="text-[10px] text-br-300">PIN-Code ist aktiv</p>
+              <p class="text-[10px] text-br-300">Server-Login aktiv</p>
             </div>
           </div>
 
@@ -480,9 +475,9 @@
             PIN ändern
           </button>
 
-          <button onclick="startPinRemoval()"
+          <button onclick="lockApp()"
             class="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-medium border border-red-500/20 transition-all">
-            PIN entfernen
+            App Sperren
           </button>
         </div>
       </div>

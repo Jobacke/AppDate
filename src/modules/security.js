@@ -1,22 +1,17 @@
-import { db } from '../config.js';
+import { db, auth, firebase, SHARED_USER_EMAIL, PIN_SALT } from '../config.js';
 import { state } from '../store.js';
-
-const SALT = "AppDate-Secure-Salt-v1";
 
 // State
 let currentPinInput = [];
-let modalMode = 'none'; // 'setup', 'remove-verify', 'change-verify-old', 'change-new'
-let tempPin = null; // To store intermediate PIN during change process
-let cachedPinHash = null; // Store fetched hash locally in memory
+let modalMode = 'none'; // 'setup', 'change-verify-old', 'change-new'
 
-// Exports to Window for HTML interaction
+// Exports for HTML
 export function initSecurity() {
-    // Expose functions to window
     window.openSecuritySettings = openSecuritySettings;
     window.closeSecurityModal = closeSecurityModal;
-    window.startPinSetup = startPinSetup;
     window.startPinChange = startPinChange;
-    window.startPinRemoval = startPinRemoval;
+    // window.startPinRemoval = startPinRemoval; // Removed for security
+    window.lockApp = lockApp;
     window.confirmPinAction = confirmPinAction;
     window.cancelPinAction = cancelPinAction;
     window.clearPinDigit = clearPinDigit;
@@ -25,11 +20,9 @@ export function initSecurity() {
     const btnSecurity = document.getElementById('btnSecurity');
     if (btnSecurity) {
         btnSecurity.addEventListener('click', openSecuritySettings);
-    } else {
-        console.warn('Security button not found in DOM');
     }
 
-    // Bind Keypad clicks (using data attributes)
+    // Bind Keypad clicks
     document.querySelectorAll('.pin-key').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const digit = e.target.getAttribute('data-num');
@@ -38,52 +31,62 @@ export function initSecurity() {
     });
 }
 
-// Check lock requirement (called after auth)
-export async function checkLockRequirement() {
-    if (!state.currentUser) return; // Should not happen if auth is correct
+// --- Auth / Lock Logic ---
 
-    try {
-        const docRef = db.collection('users').doc(state.currentUser.uid);
-        const doc = await docRef.get();
-        if (doc.exists) {
-            const data = doc.data();
-            if (data.pinHash) {
-                cachedPinHash = data.pinHash;
-                showLockScreen();
-            } else {
-                cachedPinHash = null; // Ensure clear
-            }
-        }
-    } catch (error) {
-        console.error("Error checking PIN requirement:", error);
-    }
-}
-
-
-// --- Lock Screen Logic ---
-
-function showLockScreen() {
+export function showLockScreen() {
     const lockScreen = document.getElementById('lockScreen');
-    lockScreen.classList.remove('hidden');
-    lockScreen.classList.add('flex');
+    if (lockScreen) {
+        lockScreen.classList.remove('hidden');
+        lockScreen.classList.add('flex');
+    }
     currentPinInput = [];
     updatePinDisplay();
+    // Use timeout to avoid focus fighting
+    setTimeout(() => {
+        // Maybe focus a hidden input if we want keyboard support?
+    }, 100);
 }
 
-function hideLockScreen() {
+export function hideLockScreen() {
     const lockScreen = document.getElementById('lockScreen');
-    lockScreen.classList.add('hidden');
-    lockScreen.classList.remove('flex');
+    if (lockScreen) {
+        lockScreen.classList.add('hidden');
+        lockScreen.classList.remove('flex');
+    }
     currentPinInput = [];
+}
+
+export function lockApp() {
+    auth.signOut().then(() => {
+        console.log("App Locked via SignOut");
+        // auth.js listener will trigger showLockScreen
+    });
 }
 
 async function handlePinDigit(digit) {
+    // Only process input if lock screen is visible OR inside modal pin view
+    const lockScreen = document.getElementById('lockScreen');
+    const modalPinView = document.getElementById('securityPinView');
+
+    // Determine context. 
+    // If modal is open and in pin view, don't use the lock screen keypad logic?
+    // Wait, the lock screen has its OWN keypad in HTML?
+    // Assuming the event listeners attached to '.pin-key' cover BOTH keypads if they share class, 
+    // OR they are unique.
+    // In many apps, the lock screen is an overlay.
+    // If the modal is open, we usually use the input field `modalPinInput` and correct button clicks?
+    // The previous implementation used `modalPinInput` for the modal, and keypad for the lock screen.
+    // Let's stick to that separation.
+
+    // If Lock Screen is hidden, ignore this keypad (unless it's the modal keypad?)
+    // Typically `pin-key` class is used on the Lock Screen keypad.
+    if (lockScreen.classList.contains('hidden')) return;
+
     if (currentPinInput.length < 4) {
         currentPinInput.push(digit);
         updatePinDisplay();
 
         if (currentPinInput.length === 4) {
-            // Check PIN
             await verifyLockScreenPin();
         }
     }
@@ -98,7 +101,9 @@ function clearPinDigit() {
 }
 
 function updatePinDisplay() {
-    const dots = document.getElementById('pinDisplayDots').children;
+    const container = document.getElementById('pinDisplayDots');
+    if (!container) return;
+    const dots = container.children;
     for (let i = 0; i < 4; i++) {
         if (i < currentPinInput.length) {
             dots[i].classList.remove('bg-br-700', 'border-br-600');
@@ -111,19 +116,56 @@ function updatePinDisplay() {
 }
 
 async function verifyLockScreenPin() {
-    const enteredPin = currentPinInput.join('');
-    const isValid = await checkPin(enteredPin);
+    const pin = currentPinInput.join('');
+    const password = pin + PIN_SALT;
 
-    if (isValid) {
-        // Success
-        hideLockScreen();
-    } else {
-        // Fail
-        showLockError('Falscher PIN');
-        // Shake animation
-        const dotsContainer = document.getElementById('pinDisplayDots');
-        dotsContainer.classList.add('animate-shake'); // creating this class later or using inline style
+    // UI Feedback
+    const msgEl = document.getElementById('lockMessage');
+    msgEl.textContent = 'Prüfe...';
 
+    try {
+        await auth.signInWithEmailAndPassword(SHARED_USER_EMAIL, password);
+        // Success: OnAuthStateChanged in auth.js will hide lock screen
+        msgEl.textContent = 'Erfolg';
+    } catch (error) {
+        console.error("Login Error:", error);
+
+        if (error.code === 'auth/user-not-found') {
+            // First run recovery
+            if (confirm("Kein PIN eingerichtet. Möchtest du diesen PIN jetzt festlegen?")) {
+                try {
+                    await auth.createUserWithEmailAndPassword(SHARED_USER_EMAIL, password);
+                    // Success
+                } catch (e) {
+                    showLockError("Erstellen fehlgeschlagen: " + e.message);
+                    shake();
+                }
+            } else {
+                showLockError("Benutzer nicht gefunden.");
+                shake();
+            }
+        } else if (error.code === 'auth/wrong-password') {
+            showLockError("Falscher PIN");
+            shake();
+        } else if (error.code === 'auth/too-many-requests') {
+            showLockError("Zu viele Versuche. Warte kurz.");
+            shake();
+        } else {
+            showLockError("Fehler: " + error.message);
+            shake();
+        }
+    }
+}
+
+function showLockError(msg) {
+    const el = document.getElementById('lockMessage');
+    if (el) el.textContent = msg;
+}
+
+function shake() {
+    const dotsContainer = document.getElementById('pinDisplayDots');
+    if (dotsContainer) {
+        dotsContainer.classList.add('animate-shake'); // Tailwind custom animation or class
         setTimeout(() => {
             currentPinInput = [];
             updatePinDisplay();
@@ -132,18 +174,12 @@ async function verifyLockScreenPin() {
     }
 }
 
-function showLockError(msg) {
-    document.getElementById('lockMessage').textContent = msg;
-}
-
-
 // --- Modal / Settings Logic ---
 
 function openSecuritySettings() {
     const modal = document.getElementById('securityModal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-
     resetModalView();
 }
 
@@ -158,17 +194,15 @@ function resetModalView() {
     document.getElementById('securityMainView').classList.remove('hidden');
     document.getElementById('securityPinView').classList.add('hidden');
     document.getElementById('modalPinInput').value = '';
-    document.getElementById('modalPinError').textContent = '';
+    const err = document.getElementById('modalPinError');
+    if (err) err.textContent = '';
+
     modalMode = 'none';
 
-    // Check cached state instead of localStorage
-    if (!!cachedPinHash) {
-        document.getElementById('pinManageSection').classList.remove('hidden');
-        document.getElementById('pinSetupSection').classList.add('hidden');
-    } else {
-        document.getElementById('pinManageSection').classList.add('hidden');
-        document.getElementById('pinSetupSection').classList.remove('hidden');
-    }
+    // Show Manage Section (Since we are logged in to see this)
+    // If not logged in, we wouldn't see settings.
+    document.getElementById('pinManageSection').classList.remove('hidden');
+    document.getElementById('pinSetupSection').classList.add('hidden');
 }
 
 function showPinView(title, desc, mode) {
@@ -179,22 +213,15 @@ function showPinView(title, desc, mode) {
     document.getElementById('pinViewTitle').textContent = title;
     document.getElementById('pinViewDesc').textContent = desc;
 
-    document.getElementById('modalPinInput').value = '';
-    document.getElementById('modalPinInput').focus();
+    const input = document.getElementById('modalPinInput');
+    input.value = '';
+    input.focus();
 
     modalMode = mode;
 }
 
-function startPinSetup() {
-    showPinView('PIN erstellen', 'Bitte 4-stelligen Code eingeben', 'setup');
-}
-
 function startPinChange() {
     showPinView('Authentifizierung', 'Alten PIN eingeben', 'change-verify-old');
-}
-
-function startPinRemoval() {
-    showPinView('Authentifizierung', 'Bitte PIN zur Bestätigung eingeben', 'remove-verify');
 }
 
 function cancelPinAction() {
@@ -210,72 +237,40 @@ async function confirmPinAction() {
         return;
     }
 
-    if (modalMode === 'setup') {
-        await savePin(input);
-        closeSecurityModal();
-        alert('PIN erfolgreich eingerichtet!');
-    } else if (modalMode === 'remove-verify') {
-        if (await checkPin(input)) {
-            await removePin(); // Await cause it's async now
-            closeSecurityModal();
-            alert('PIN entfernt.');
-        } else {
-            errorEl.textContent = 'Falscher PIN.';
-        }
-    } else if (modalMode === 'change-verify-old') {
-        if (await checkPin(input)) {
+    if (modalMode === 'change-verify-old') {
+        const isValid = await reauthUser(input);
+        if (isValid) {
             showPinView('Neuer PIN', 'Bitte neuen Code eingeben', 'change-new');
         } else {
             errorEl.textContent = 'Falscher PIN.';
         }
     } else if (modalMode === 'change-new') {
-        await savePin(input);
+        await updatePin(input);
         closeSecurityModal();
         alert('PIN erfolgreich geändert!');
     }
 }
 
+// --- Auth Helpers ---
 
-// --- Crypto / Storage Helpers ---
-
-async function hashPin(pin) {
-    const msgBuffer = new TextEncoder().encode(pin + SALT);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function savePin(pin) {
+async function reauthUser(pin) {
     try {
-        const hash = await hashPin(pin);
-        cachedPinHash = hash; // Update local cache
-        // Save to Firestore
-        if (state.currentUser) {
-            await db.collection('users').doc(state.currentUser.uid).set({
-                pinHash: hash
-            }, { merge: true });
-        }
-    } catch (error) {
-        console.error("Error saving PIN:", error);
-        alert("Fehler beim Speichern des PINs.");
+        const password = pin + PIN_SALT;
+        const cred = firebase.auth.EmailAuthProvider.credential(SHARED_USER_EMAIL, password);
+        await auth.currentUser.reauthenticateWithCredential(cred);
+        return true;
+    } catch (e) {
+        console.error("Reauth failed", e);
+        return false;
     }
 }
 
-async function checkPin(inputPin) {
-    if (!cachedPinHash) return false;
-    const inputHash = await hashPin(inputPin);
-    return inputHash === cachedPinHash;
-}
-
-async function removePin() {
+async function updatePin(pin) {
     try {
-        cachedPinHash = null;
-        if (state.currentUser) {
-            await db.collection('users').doc(state.currentUser.uid).set({
-                pinHash: null // Or use delete field logic if preferred, but setting null is easier to check
-            }, { merge: true });
-        }
-    } catch (error) {
-        console.error("Error removing PIN:", error);
+        const password = pin + PIN_SALT;
+        await auth.currentUser.updatePassword(password);
+    } catch (e) {
+        console.error("Update password failed", e);
+        alert("Fehler beim Ändern: " + e.message);
     }
 }
