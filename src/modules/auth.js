@@ -1,6 +1,7 @@
 import { auth } from '../config.js';
 import { state } from '../store.js';
-import { subscribeCalendar, unsubscribeCalendar } from './calendar.js';
+import { subscribeCalendar } from './calendar.js';
+import { checkLockRequirement } from './security.js';
 
 export function initAuth() {
     // Auto-login anonymously to ensure Firestore access without user interaction
@@ -8,16 +9,20 @@ export function initAuth() {
         console.error("Anonymous login failed", error);
     });
 
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async user => {
         if (user) {
             state.currentUser = user;
-            // Always show app, hide login screen (which we will remove from HTML)
+
+            // Sync check for PIN requirement
+            await checkLockRequirement();
+
+            // Afterward, we can ensure the app is visible (unless locked by checkLockRequirement logic which shows overlay)
             const app = document.getElementById('app');
             if (app) app.classList.remove('hidden');
 
             subscribeCalendar();
         } else {
-            // Should not happen with anonymous login, but handle graceful retry or error
+            // Should not happen with anonymous login
         }
     });
 }

@@ -1,11 +1,13 @@
+import { db } from '../config.js';
+import { state } from '../store.js';
 
 const SALT = "AppDate-Secure-Salt-v1";
-const STORAGE_KEY = 'appDate_pinHash';
 
 // State
 let currentPinInput = [];
 let modalMode = 'none'; // 'setup', 'remove-verify', 'change-verify-old', 'change-new'
 let tempPin = null; // To store intermediate PIN during change process
+let cachedPinHash = null; // Store fetched hash locally in memory
 
 // Exports to Window for HTML interaction
 export function initSecurity() {
@@ -34,12 +36,29 @@ export function initSecurity() {
             if (digit) handlePinDigit(digit);
         });
     });
+}
 
-    // Check Lock State
-    if (hasPin()) {
-        showLockScreen();
+// Check lock requirement (called after auth)
+export async function checkLockRequirement() {
+    if (!state.currentUser) return; // Should not happen if auth is correct
+
+    try {
+        const docRef = db.collection('users').doc(state.currentUser.uid);
+        const doc = await docRef.get();
+        if (doc.exists) {
+            const data = doc.data();
+            if (data.pinHash) {
+                cachedPinHash = data.pinHash;
+                showLockScreen();
+            } else {
+                cachedPinHash = null; // Ensure clear
+            }
+        }
+    } catch (error) {
+        console.error("Error checking PIN requirement:", error);
     }
 }
+
 
 // --- Lock Screen Logic ---
 
@@ -142,7 +161,8 @@ function resetModalView() {
     document.getElementById('modalPinError').textContent = '';
     modalMode = 'none';
 
-    if (hasPin()) {
+    // Check cached state instead of localStorage
+    if (!!cachedPinHash) {
         document.getElementById('pinManageSection').classList.remove('hidden');
         document.getElementById('pinSetupSection').classList.add('hidden');
     } else {
@@ -196,7 +216,7 @@ async function confirmPinAction() {
         alert('PIN erfolgreich eingerichtet!');
     } else if (modalMode === 'remove-verify') {
         if (await checkPin(input)) {
-            removePin();
+            await removePin(); // Await cause it's async now
             closeSecurityModal();
             alert('PIN entfernt.');
         } else {
@@ -218,10 +238,6 @@ async function confirmPinAction() {
 
 // --- Crypto / Storage Helpers ---
 
-function hasPin() {
-    return !!localStorage.getItem(STORAGE_KEY);
-}
-
 async function hashPin(pin) {
     const msgBuffer = new TextEncoder().encode(pin + SALT);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -230,17 +246,36 @@ async function hashPin(pin) {
 }
 
 async function savePin(pin) {
-    const hash = await hashPin(pin);
-    localStorage.setItem(STORAGE_KEY, hash);
+    try {
+        const hash = await hashPin(pin);
+        cachedPinHash = hash; // Update local cache
+        // Save to Firestore
+        if (state.currentUser) {
+            await db.collection('users').doc(state.currentUser.uid).set({
+                pinHash: hash
+            }, { merge: true });
+        }
+    } catch (error) {
+        console.error("Error saving PIN:", error);
+        alert("Fehler beim Speichern des PINs.");
+    }
 }
 
 async function checkPin(inputPin) {
-    const storedHash = localStorage.getItem(STORAGE_KEY);
-    if (!storedHash) return false;
+    if (!cachedPinHash) return false;
     const inputHash = await hashPin(inputPin);
-    return inputHash === storedHash;
+    return inputHash === cachedPinHash;
 }
 
-function removePin() {
-    localStorage.removeItem(STORAGE_KEY);
+async function removePin() {
+    try {
+        cachedPinHash = null;
+        if (state.currentUser) {
+            await db.collection('users').doc(state.currentUser.uid).set({
+                pinHash: null // Or use delete field logic if preferred, but setting null is easier to check
+            }, { merge: true });
+        }
+    } catch (error) {
+        console.error("Error removing PIN:", error);
+    }
 }
