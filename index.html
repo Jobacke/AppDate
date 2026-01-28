@@ -115,6 +115,12 @@
             <input type="file" id="icsInput" accept=".ics" class="hidden" onchange="handleIcsUpload(this)">
           </div>
 
+          <!-- Security/Settings Button -->
+          <button onclick="openSecuritySettings()" title="Sicherheitseinstellungen"
+            class="bg-br-800 text-br-300 hover:text-white px-3 py-2.5 rounded-xl transition-colors border border-br-600/50 flex items-center gap-2">
+            <i class="ph-shield-check-bold text-xl"></i>
+          </button>
+
           <!-- Selection Mode Toggle -->
           <button onclick="toggleSelectionMode()" id="btnSelectionMode" title="Mehrfachauswahl für Löschen"
             class="bg-br-800 text-br-300 hover:text-white px-3 py-2.5 rounded-xl transition-colors border border-br-600/50 group relative flex items-center gap-2">
@@ -365,6 +371,144 @@
 
     </div>
   </nav>
+
+  <!-- Lock Screen Overlay -->
+  <div id="lockScreen" class="fixed inset-0 z-[100] bg-br-900 hidden flex-col items-center justify-center p-4">
+    <div class="max-w-xs w-full flex flex-col items-center space-y-8 animate-fade-in">
+      <div class="text-center space-y-2">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-600/20 text-blue-400 mb-2">
+          <i class="ph-lock-key-bold text-3xl"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-white">AppDate Geschützt</h2>
+        <p class="text-br-300 text-sm">Bitte gib deinen PIN-Code ein</p>
+      </div>
+
+      <!-- PIN Dots -->
+      <div class="flex gap-4 justify-center my-4" id="pinDisplayDots">
+        <div class="w-4 h-4 rounded-full bg-br-700 border border-br-600 transition-colors duration-200"></div>
+        <div class="w-4 h-4 rounded-full bg-br-700 border border-br-600 transition-colors duration-200"></div>
+        <div class="w-4 h-4 rounded-full bg-br-700 border border-br-600 transition-colors duration-200"></div>
+        <div class="w-4 h-4 rounded-full bg-br-700 border border-br-600 transition-colors duration-200"></div>
+      </div>
+
+      <!-- Number Pad -->
+      <div class="grid grid-cols-3 gap-4 w-full px-4">
+        <!-- Digits 1-9 generated via JS or hardcoded -->
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="1">1</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="2">2</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="3">3</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="4">4</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="5">5</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="6">6</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="7">7</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="8">8</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="9">9</button>
+        <div class="h-16"></div> <!-- Spacer -->
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="0">0</button>
+        <button
+          class="h-16 rounded-full text-red-400 hover:text-red-300 flex items-center justify-center transition-all active:scale-95"
+          onclick="clearPinDigit()">
+          <i class="ph-backspace-bold text-2xl"></i>
+        </button>
+      </div>
+      <p id="lockMessage" class="h-4 text-xs text-red-400 font-medium text-center"></p>
+    </div>
+  </div>
+
+  <!-- Security Settings Modal -->
+  <div id="securityModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop">
+    <div class="bg-br-800 rounded-2xl p-6 m-4 max-w-sm w-full border border-br-600 shadow-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="ph-shield-check text-blue-400"></i> Sicherheit
+        </h3>
+        <button onclick="closeSecurityModal()" class="text-br-200 hover:text-white text-2xl">&times;</button>
+      </div>
+
+      <div id="securityMainView" class="space-y-4">
+        <!-- If PIN is NOT set -->
+        <div id="pinSetupSection" class="hidden">
+          <p class="text-sm text-br-200 mb-4">Schütze deine App mit einem 4-stelligen PIN-Code.</p>
+          <div class="bg-blue-900/10 border border-blue-500/10 p-3 rounded-xl mb-4">
+            <div class="flex gap-3 items-start">
+              <i class="ph-info text-blue-400 mt-0.5"></i>
+              <p class="text-xs text-br-300">Der PIN wird nur lokal in diesem Browser gespeichert. Wenn du deine
+                Browserdaten löschst, wird auch der PIN entfernt.</p>
+            </div>
+          </div>
+
+          <button onclick="startPinSetup()"
+            class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 transition-all">
+            PIN erstellen
+          </button>
+        </div>
+
+        <!-- If PIN IS set -->
+        <div id="pinManageSection" class="hidden space-y-3">
+          <div class="bg-blue-900/20 border border-blue-500/20 rounded-xl p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center">
+              <i class="ph-check-circle-bold text-xl"></i>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-white">App ist geschützt</p>
+              <p class="text-[10px] text-br-300">PIN-Code ist aktiv</p>
+            </div>
+          </div>
+
+          <button onclick="startPinChange()"
+            class="w-full py-3 bg-br-700 hover:bg-br-600 text-white rounded-xl font-medium border border-br-600 transition-all">
+            PIN ändern
+          </button>
+
+          <button onclick="startPinRemoval()"
+            class="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-medium border border-red-500/20 transition-all">
+            PIN entfernen
+          </button>
+        </div>
+      </div>
+
+      <!-- PIN Input View (Reuse for Setup/Change/Verify logic in modal) -->
+      <div id="securityPinView" class="hidden flex-col items-center">
+        <h4 id="pinViewTitle" class="text-white font-medium mb-1">Neuen PIN eingeben</h4>
+        <p id="pinViewDesc" class="text-xs text-br-300 mb-6">4 Zahlen wählen</p>
+
+        <!-- Simple Setup Input -->
+        <div class="flex gap-2 justify-center mb-6">
+          <input type="password" id="modalPinInput" maxlength="4" pattern="[0-9]*" inputmode="numeric"
+            class="tracking-[1em] text-center w-32 bg-br-900 border border-br-600 rounded-xl py-2 text-xl text-white focus:border-blue-500 focus:outline-none placeholder-br-700 font-mono">
+        </div>
+
+        <p id="modalPinError" class="text-xs text-red-400 h-4 mb-4 text-center"></p>
+
+        <div class="flex w-full gap-2">
+          <button onclick="cancelPinAction()"
+            class="flex-1 py-2 text-br-300 hover:text-white text-sm transition-colors">Abbrechen</button>
+          <button id="btnConfirmPinAction" onclick="confirmPinAction()"
+            class="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors">Bestätigen</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="/src/main.js"></script>
 </body>
