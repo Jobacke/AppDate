@@ -9,8 +9,8 @@ let modalMode = 'none'; // 'setup', 'change-verify-old', 'change-new'
 let unlockCallback = null; // Callback to trigger unlock in auth.js
 
 // Exports for HTML
-export function initSecurity(onUnlockSuccess) {
-    if (onUnlockSuccess) unlockCallback = onUnlockSuccess;
+export function initSecurity() {
+    // if (onUnlockSuccess) unlockCallback = onUnlockSuccess; // Legacy injection
 
     window.openSecuritySettings = openSecuritySettings;
     window.closeSecurityModal = closeSecurityModal;
@@ -142,7 +142,7 @@ async function verifyLockScreenPin() {
         await auth.signInWithEmailAndPassword(dynamicEmail, password);
 
         msgEl.textContent = 'Erfolg';
-        if (unlockCallback) unlockCallback();
+        if (window.finalizeUnlock) window.finalizeUnlock();
 
         // Ask for Biometric Setup if tech supported and not yet done
         // setTimeout(async () => {
@@ -162,7 +162,7 @@ async function verifyLockScreenPin() {
             if (confirm(`PIN ${pin} ist noch nicht eingerichtet. Möchtest du ihn jetzt aktivieren?`)) {
                 try {
                     await auth.createUserWithEmailAndPassword(dynamicEmail, password);
-                    if (unlockCallback) unlockCallback();
+                    if (window.finalizeUnlock) window.finalizeUnlock(); window.finalizeUnlock();
                 } catch (e) {
                     showLockError("Fehler: " + e.message);
                     shake();
@@ -417,7 +417,7 @@ window.triggerBiometricUnlock = async function () {
         // Trusts: Device OS.
 
         // Success -> Unlock
-        if (unlockCallback) unlockCallback();
+        if (window.finalizeUnlock) window.finalizeUnlock(); window.finalizeUnlock();
 
     } catch (e) {
         console.error("Bio Unlock Error:", e);

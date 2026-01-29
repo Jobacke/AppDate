@@ -4,7 +4,7 @@ import { subscribeCalendar, unsubscribeCalendar } from './calendar.js';
 import { showLockScreen, hideLockScreen } from './security.js';
 
 // Helper to centrally manage "Unlocked" state
-export function finalizeUnlock() {
+function finalizeUnlock() {
     const app = document.getElementById('app');
 
     // 1. Mark session as unlocked
@@ -17,6 +17,7 @@ export function finalizeUnlock() {
     // 3. Load Data
     subscribeCalendar();
 }
+window.finalizeUnlock = finalizeUnlock;
 
 
 export function initAuth() {
