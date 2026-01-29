@@ -53,7 +53,11 @@ export function showLockScreen(user) {
     updatePinDisplay();
 
     // Check if Bio is available
-    checkBiometricAvailability(user);
+    checkBiometricAvailability(user).then(available => {
+        if (available) {
+            triggerBiometricUnlock();
+        }
+    });
 }
 
 export function hideLockScreen() {
@@ -338,11 +342,13 @@ async function checkBiometricAvailability(user) {
             btn.classList.remove('hidden');
             btn.classList.add('flex');
         }
+        return true;
     } else {
         if (btn) {
             btn.classList.add('hidden');
             btn.classList.remove('flex');
         }
+        return false;
     }
 }
 
@@ -397,7 +403,7 @@ async function registerBiometric() {
     }
 }
 
-window.triggerBiometricUnlock = async function () {
+async function triggerBiometricUnlock() {
     try {
         const randomChallenge = new Uint8Array(32);
         window.crypto.getRandomValues(randomChallenge);
@@ -417,7 +423,7 @@ window.triggerBiometricUnlock = async function () {
         // Trusts: Device OS.
 
         // Success -> Unlock
-        if (window.finalizeUnlock) window.finalizeUnlock(); window.finalizeUnlock();
+        if (window.finalizeUnlock) window.finalizeUnlock();
 
     } catch (e) {
         console.error("Bio Unlock Error:", e);
@@ -425,6 +431,7 @@ window.triggerBiometricUnlock = async function () {
         shake();
     }
 };
+window.triggerBiometricUnlock = triggerBiometricUnlock;
 
 async function setupBiometricFromSettings() {
     if (!confirm("Möchtest du dieses Gerät mit deinem Account verknüpfen (via FaceID/TouchID)?")) return;
