@@ -143,9 +143,13 @@ async function verifyLockScreenPin() {
     } catch (error) {
         console.error("Login Error:", error);
 
-        if (error.code === 'auth/user-not-found') {
-            // First run recovery / Setup
-            // We explain that this SPECIFIC PIN is not set up
+        // 'auth/user-not-found' => User doesn't exist yet (Normal for first setup)
+        // 'auth/invalid-credential' => Often happens if cache is stale or user was deleted but browser thinks it exists. Treat as "Not Found".
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+
+            // Explicitly sign out first to clear any zombie state
+            await auth.signOut();
+
             if (confirm(`PIN ${pin} ist noch nicht eingerichtet. Möchtest du ihn jetzt aktivieren?`)) {
                 try {
                     await auth.createUserWithEmailAndPassword(dynamicEmail, password);
