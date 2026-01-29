@@ -23,6 +23,9 @@ export function initCalendar() {
 
     // Immediately start listening when module loads
     subscribeCalendar();
+
+    // Start Reminder Loop
+    initReminders();
 }
 
 // Expose functions globally
@@ -1052,6 +1055,12 @@ function openAddAppointmentModal() {
     document.getElementById('btnDeleteAppt').classList.add('hidden');
     document.getElementById('btnGroupRecurringDelete').classList.add('hidden');
     document.getElementById('modalTitleAppt').textContent = '✨ Neuer Termin';
+
+    // Reset Reminder
+    document.getElementById('apptReminderActive').checked = false;
+    document.getElementById('apptReminderValue').value = '15';
+    document.getElementById('apptReminderUnit').value = 'minutes';
+    toggleReminderOptions();
 }
 
 function editAppointment(id, instanceStart) {
@@ -1130,6 +1139,13 @@ function editAppointment(id, instanceStart) {
 
     // DEBUG: Show Source in Title
     document.getElementById('modalTitleAppt').textContent = '✏️ Termin bearbeiten';
+
+    // Populate Reminder
+    const remActive = evt.reminderActive || false;
+    document.getElementById('apptReminderActive').checked = remActive;
+    document.getElementById('apptReminderValue').value = evt.reminderValue || '15';
+    document.getElementById('apptReminderUnit').value = evt.reminderUnit || 'minutes';
+    toggleReminderOptions();
 }
 
 async function saveAppointmentEdit() {
@@ -1165,6 +1181,11 @@ async function saveAppointmentEdit() {
         recurrence,
         recurrenceEnd,
         recurrenceInterval,
+        recurrenceInterval,
+        // Reminder Data
+        reminderActive: document.getElementById('apptReminderActive').checked,
+        reminderValue: parseInt(document.getElementById('apptReminderValue').value) || 15,
+        reminderUnit: document.getElementById('apptReminderUnit').value,
         updatedAt: new Date()
     };
 
@@ -1287,8 +1308,121 @@ function closeEditAppointmentModal() {
 
 // === Reset Functions ===
 // (Called from HTML)
-window.executeReset = async () => {
     // ... not implemented directly here, logic is inside handleIcsUpload internal flow
     // Reuse handleIcsUpload logic or just UI?
     // Actually the button in UI triggers handleIcsUpload which triggers the UI flow.
 };
+
+
+// === Reminder System ===
+
+const firedReminders = new Set(); // Stores "eventId_startTime"
+const NOTIFICATION_SOUND = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"); // Simple soft bell
+
+function initReminders() {
+    // Check every 30 seconds
+    setInterval(checkReminders, 30000);
+
+    // UI Listener for toggle
+    const chk = document.getElementById('apptReminderActive');
+    if (chk) chk.addEventListener('change', toggleReminderOptions);
+
+    // Request Permission initially if needed (on first interaction usually better, but let's try)
+    if ("Notification" in window && Notification.permission === "default") {
+        // Wait for user interaction to avoid block? We can ask when saving a reminder.
+    }
+}
+
+function toggleReminderOptions() {
+    const chk = document.getElementById('apptReminderActive');
+    const opts = document.getElementById('reminderOptions');
+    if (chk && chk.checked) {
+        opts.classList.remove('hidden');
+        // Ask for permission if not granted
+        if ("Notification" in window && Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+    } else {
+        if (opts) opts.classList.add('hidden');
+    }
+}
+
+function checkReminders() {
+    if (!state.allEvents) return;
+
+    const now = new Date();
+    // Look ahead window: Events starting soon
+    // We iterate expanded events (which includes recurrence instances!)
+
+    state.allEvents.forEach(evt => {
+        if (!evt.reminderActive) return;
+        if (!evt.start) return;
+
+        // Calculate Trigger Time
+        const start = new Date(evt.start);
+        const val = evt.reminderValue || 15;
+        const unit = evt.reminderUnit || 'minutes';
+
+        let triggerTime = new Date(start);
+
+        if (unit === 'minutes') triggerTime.setMinutes(start.getMinutes() - val);
+        if (unit === 'hours') triggerTime.setHours(start.getHours() - val);
+        if (unit === 'days') triggerTime.setDate(start.getDate() - val);
+
+        // Check if NOW is past Trigger Time, but not too far (e.g. within 2 minutes)
+        // This prevents alerting for old events on reload
+        const diffMs = now.getTime() - triggerTime.getTime();
+        const diffMin = diffMs / 60000;
+
+        // If we are within 2 minutes after the trigger time
+        if (diffMin >= 0 && diffMin < 2) {
+            const key = `${evt.id}_${evt.start}`;
+            if (!firedReminders.has(key)) {
+                fireReminder(evt);
+                firedReminders.add(key);
+            }
+        }
+    });
+}
+
+function fireReminder(evt) {
+    console.log("🔔 REMINDER:", evt.title);
+
+    // 1. Acoustic
+    try {
+        NOTIFICATION_SOUND.play().catch(e => console.log("Audio play blocked (user didn't interact yet):", e));
+    } catch (e) { }
+
+    // 2. Optic - System Notification (if background)
+    if ("Notification" in window && Notification.permission === "granted" && document.visibilityState === 'hidden') {
+        new Notification("Erinnerung: " + evt.title, {
+            body: `Startet um ${new Date(evt.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+            icon: '/icon.png'
+        });
+    }
+
+    // 3. Optic - In-App Toast (Always)
+    showToast(`🔔 ${evt.title}`, `In ${evt.reminderValue} ${evt.reminderUnit === 'minutes' ? 'Minuten' : (evt.reminderUnit === 'hours' ? 'Stunden' : 'Tagen')}`);
+}
+
+function showToast(title, msg) {
+    const div = document.createElement('div');
+    div.className = "fixed top-4 right-4 z-[9999] bg-br-800 border border-blue-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in";
+    div.innerHTML = `
+        <div class="bg-blue-500/20 p-2 rounded-full text-blue-400"><i class="ph-bell-ringing-bold text-xl"></i></div>
+        <div>
+            <div class="font-bold text-sm">${title}</div>
+            <div class="text-xs text-br-300">${msg}</div>
+        </div>
+    `;
+    document.body.appendChild(div);
+
+    // Remove after 5s
+    setTimeout(() => {
+        div.style.opacity = '0';
+        div.style.transform = 'translateY(-10px)';
+        div.style.transition = 'all 0.5s ease';
+        setTimeout(() => div.remove(), 500);
+    }, 5000);
+}
+

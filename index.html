@@ -195,6 +195,27 @@
           <label for="apptAllDay" class="text-sm cursor-pointer">Ganztägig</label>
         </div>
 
+        <!-- Reminder Section -->
+        <div class="pt-2 border-t border-br-600/50 mt-2">
+          <div class="flex items-center gap-2 mb-2">
+            <input type="checkbox" id="apptReminderActive" class="w-4 h-4 rounded border-gray-500 bg-gray-700">
+            <label for="apptReminderActive" class="text-sm cursor-pointer flex items-center gap-2">
+              <i class="ph-bell-simple"></i> Erinnerung
+            </label>
+          </div>
+
+          <div id="reminderOptions" class="hidden pl-6 flex items-center gap-2">
+            <input type="number" id="apptReminderValue" value="15" min="1" max="999"
+              class="w-16 bg-br-700 border border-br-500 rounded-lg p-2 text-sm text-white text-center">
+            <select id="apptReminderUnit"
+              class="bg-br-700 border border-br-500 rounded-lg p-2 text-sm text-white focus:outline-none">
+              <option value="minutes">Minuten vorher</option>
+              <option value="hours">Stunden vorher</option>
+              <option value="days">Tage vorher</option>
+            </select>
+          </div>
+        </div>
+
         <div id="exchangeOptions" class="pt-2 border-t border-br-600/50 mt-2">
           <div class="flex items-center gap-2">
             <input type="checkbox" id="apptIsAppRelevant"
