@@ -330,8 +330,10 @@ async function checkBiometricAvailability(user) {
     // Use passed user OR fallback to auth.currentUser
     const currentUser = user || auth.currentUser;
 
-    // Only show button if we have a credential registered AND we are conceptually logged in (User exists)
-    if (hasCred && currentUser) {
+    // Only show button if we have a credential registered locally.
+    // We relax the "currentUser" check to avoid race conditions on load.
+    // Worst case: User clicks, and we handle "No User" in the trigger function.
+    if (hasCred) {
         if (btn) {
             btn.classList.remove('hidden');
             btn.classList.add('flex');
