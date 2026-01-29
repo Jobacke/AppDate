@@ -630,19 +630,31 @@ async function exportOverviewPdf() {
             head: [['Datum', 'Zeit', 'Titel', 'Ort']],
             body: tableBody,
             startY: 40,
+            theme: 'grid', // Cleaner grid look
             styles: {
-                fontSize: 10,
-                cellPadding: 3,
+                fontSize: 8, // Smaller font
+                cellPadding: 1.5, // Less padding
+                lineColor: [200, 200, 200],
+                lineWidth: 0.1,
+                overflow: 'linebreak'
             },
             headStyles: {
-                fillColor: [41, 128, 185], // Brand Blue
+                fillColor: [60, 100, 160], // Darker, more professional blue
                 textColor: 255,
-                fontStyle: 'bold'
+                fontSize: 8,
+                fontStyle: 'bold',
+                halign: 'left'
+            },
+            columnStyles: {
+                0: { cellWidth: 25 }, // Datum
+                1: { cellWidth: 15 }, // Zeit
+                2: { cellWidth: 'auto' }, // Titel (flexible)
+                3: { cellWidth: 35 } // Ort
             },
             alternateRowStyles: {
-                fillColor: [245, 245, 245]
+                fillColor: [250, 250, 250] // Very subtle alternate
             },
-            margin: { top: 40 }
+            margin: { top: 40, left: 14, right: 14 }
         });
 
         // -- Footer / Save --
