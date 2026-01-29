@@ -1308,10 +1308,10 @@ function closeEditAppointmentModal() {
 
 // === Reset Functions ===
 // (Called from HTML)
-    // ... not implemented directly here, logic is inside handleIcsUpload internal flow
-    // Reuse handleIcsUpload logic or just UI?
-    // Actually the button in UI triggers handleIcsUpload which triggers the UI flow.
-};
+// ... not implemented directly here, logic is inside handleIcsUpload internal flow
+// Reuse handleIcsUpload logic or just UI?
+// Actually the button in UI triggers handleIcsUpload which triggers the UI flow.
+
 
 
 // === Reminder System ===
