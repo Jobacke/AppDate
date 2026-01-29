@@ -39,7 +39,7 @@ export function initAuth() {
             } else {
                 console.log("New Session / Locked. Showing Lock Screen.");
                 // Ensure UI is locked
-                showLockScreen();
+                showLockScreen(user);
                 // Ensure Data is NOT subscribed yet
                 unsubscribeCalendar();
             }

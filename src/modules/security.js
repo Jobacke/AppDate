@@ -43,7 +43,7 @@ export function initSecurity(onUnlockSuccess) {
 // Biometry Text
 const BIO_KEY = "appdate_bio_cred_id";
 
-export function showLockScreen() {
+export function showLockScreen(user) {
     const lockScreen = document.getElementById('lockScreen');
     if (lockScreen) {
         lockScreen.classList.remove('hidden');
@@ -53,7 +53,7 @@ export function showLockScreen() {
     updatePinDisplay();
 
     // Check if Bio is available
-    checkBiometricAvailability();
+    checkBiometricAvailability(user);
 }
 
 export function hideLockScreen() {
@@ -319,7 +319,7 @@ async function updatePin(pin) {
 
 // === Biometric Logic (FaceID / TouchID) ===
 
-async function checkBiometricAvailability() {
+async function checkBiometricAvailability(user) {
     // 1. Browser Support?
     if (!window.PublicKeyCredential) return;
 
@@ -327,16 +327,15 @@ async function checkBiometricAvailability() {
     const hasCred = localStorage.getItem(BIO_KEY);
     const btn = document.getElementById('btnBiometricUnlock');
 
-    // Only show button if we have a credential registered AND we are conceptually logged in (User exists)
-    // If we are signed out (User is null), FaceID makes no sense as we can't get session.
-    // But showLockScreen is also called when User is null.
+    // Use passed user OR fallback to auth.currentUser
+    const currentUser = user || auth.currentUser;
 
-    if (hasCred && auth.currentUser) {
+    // Only show button if we have a credential registered AND we are conceptually logged in (User exists)
+    if (hasCred && currentUser) {
         if (btn) {
             btn.classList.remove('hidden');
             btn.classList.add('flex');
         }
-        // Auto-Trigger? Maybe annoying. Let user click.
     } else {
         if (btn) {
             btn.classList.add('hidden');
