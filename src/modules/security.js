@@ -145,9 +145,9 @@ async function verifyLockScreenPin() {
         if (unlockCallback) unlockCallback();
 
         // Ask for Biometric Setup if tech supported and not yet done
-        setTimeout(async () => {
-            await possiblySetupBiometric();
-        }, 500);
+        // setTimeout(async () => {
+        //     await possiblySetupBiometric();
+        // }, 500);
 
     } catch (error) {
         console.error("Login Error:", error);
