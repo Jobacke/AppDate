@@ -125,7 +125,8 @@ function updatePinDisplay() {
 
 async function verifyLockScreenPin() {
     const pin = currentPinInput.join('');
-    // For Shared Account: PIN + Salt = Password
+    // Dynamic Email based on PIN allows multiple users
+    const dynamicEmail = `user-${pin}@appdate.local`;
     const password = pin + PIN_SALT;
 
     // UI Feedback
@@ -133,15 +134,10 @@ async function verifyLockScreenPin() {
     msgEl.textContent = 'Prüfe...';
 
     try {
-        // ALWAYS Verify against Cloud (Auth).
-        // If we are already logged in (cached), this check confirms the PIN/Password is correct.
-        // If we are not logged in, this logs us in.
-        await auth.signInWithEmailAndPassword(SHARED_USER_EMAIL, password);
+        // Log in with the Specific User for this PIN
+        await auth.signInWithEmailAndPassword(dynamicEmail, password);
 
-        // If we get here, PIN is correct.
         msgEl.textContent = 'Erfolg';
-
-        // Trigger Unlock Sequence
         finalizeUnlock();
 
     } catch (error) {
@@ -149,21 +145,22 @@ async function verifyLockScreenPin() {
 
         if (error.code === 'auth/user-not-found') {
             // First run recovery / Setup
-            if (confirm("Kein PIN eingerichtet (Benutzer nicht gefunden). Möchtest du diesen PIN jetzt als Passwort festlegen?")) {
+            // We explain that this SPECIFIC PIN is not set up
+            if (confirm(`PIN ${pin} ist noch nicht eingerichtet. Möchtest du ihn jetzt aktivieren?`)) {
                 try {
-                    await auth.createUserWithEmailAndPassword(SHARED_USER_EMAIL, password);
-                    // Success -> Auto logged in
+                    await auth.createUserWithEmailAndPassword(dynamicEmail, password);
                     finalizeUnlock();
                 } catch (e) {
-                    showLockError("Erstellen fehlgeschlagen: " + e.message);
+                    showLockError("Fehler: " + e.message);
                     shake();
                 }
             } else {
-                showLockError("Benutzer nicht gefunden.");
+                showLockError("PIN nicht gefunden.");
                 shake();
             }
         } else if (error.code === 'auth/wrong-password') {
-            showLockError("Falscher PIN");
+            // Should rarely happen unless collision or logic change
+            showLockError("Falscher Code.");
             shake();
         } else if (error.code === 'auth/too-many-requests') {
             showLockError("Zu viele Versuche. Warte kurz.");
