@@ -1,0 +1,25 @@
+name: Cleanup Old Runs
+
+on:
+  # Erlaubt das manuelle Starten des Workflows
+  workflow_dispatch:
+  
+  # Optional: Automatisch jede Nacht um 00:00 Uhr laufen lassen
+  # schedule:
+  #   - cron: '0 0 * * *'
+
+jobs:
+  del_runs:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 1
+          delete_workflow_pattern: "CI Pipeline" # Optional: Nur bestimmte Workflows löschen, oder weglassen für alle
