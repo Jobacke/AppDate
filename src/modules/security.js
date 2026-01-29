@@ -35,6 +35,9 @@ export function initSecurity() {
 
 // --- Auth / Lock Logic ---
 
+// Biometry Text
+const BIO_KEY = "appdate_bio_cred_id";
+
 export function showLockScreen() {
     const lockScreen = document.getElementById('lockScreen');
     if (lockScreen) {
@@ -43,10 +46,9 @@ export function showLockScreen() {
     }
     currentPinInput = [];
     updatePinDisplay();
-    // Use timeout to avoid focus fighting
-    setTimeout(() => {
-        // Maybe focus a hidden input if we want keyboard support?
-    }, 100);
+
+    // Check if Bio is available
+    checkBiometricAvailability();
 }
 
 export function hideLockScreen() {
@@ -62,13 +64,10 @@ export function lockApp() {
     // Explicitly clear session flag
     sessionStorage.removeItem('APP_UNLOCKED');
 
-    // We can either signOut (requiring strict online re-auth) 
-    // OR just reload page to trigger lock screen (lighter).
-    // Given the requirement "Cloud-based", SignOut is safest.
-    auth.signOut().then(() => {
-        console.log("App Locked via SignOut");
-        // auth.js listener will trigger showLockScreen
-    });
+    // Soft Lock: We do NOT signOut. We just reload.
+    // This allows FaceID to work (because Firebase session is still active in background).
+    // Security: initAuth will see User + No Flag -> Lock Screen forces PIN or FaceID.
+    window.location.reload();
 }
 
 async function handlePinDigit(digit) {
@@ -139,6 +138,11 @@ async function verifyLockScreenPin() {
 
         msgEl.textContent = 'Erfolg';
         finalizeUnlock();
+
+        // Ask for Biometric Setup if tech supported and not yet done
+        setTimeout(async () => {
+            await possiblySetupBiometric();
+        }, 500);
 
     } catch (error) {
         console.error("Login Error:", error);
@@ -293,3 +297,111 @@ async function updatePin(pin) {
         alert("Fehler beim Ändern: " + e.message);
     }
 }
+
+// === Biometric Logic (FaceID / TouchID) ===
+
+async function checkBiometricAvailability() {
+    // 1. Browser Support?
+    if (!window.PublicKeyCredential) return;
+
+    // 2. Already set up?
+    const hasCred = localStorage.getItem(BIO_KEY);
+    const btn = document.getElementById('btnBiometricUnlock');
+
+    // Only show button if we have a credential registered AND we are conceptually logged in (User exists)
+    // If we are signed out (User is null), FaceID makes no sense as we can't get session.
+    // But showLockScreen is also called when User is null.
+
+    if (hasCred && auth.currentUser) {
+        if (btn) {
+            btn.classList.remove('hidden');
+            btn.classList.add('flex');
+        }
+        // Auto-Trigger? Maybe annoying. Let user click.
+    } else {
+        if (btn) {
+            btn.classList.add('hidden');
+            btn.classList.remove('flex');
+        }
+    }
+}
+
+async function possiblySetupBiometric() {
+    if (!window.PublicKeyCredential) return;
+
+    // If already set up, skip
+    if (localStorage.getItem(BIO_KEY)) return;
+
+    // Ask user
+    // Only ask if Platform Authenticator is available (FaceID/TouchID)
+    try {
+        const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        if (!available) return;
+    } catch (e) { return; }
+
+    if (!confirm("Möchtest du Face ID / Touch ID für schnelleres Entsperren aktivieren?")) return;
+
+    registerBiometric();
+}
+
+async function registerBiometric() {
+    try {
+        const randomChallenge = new Uint8Array(32);
+        window.crypto.getRandomValues(randomChallenge);
+
+        const publicKey = {
+            challenge: randomChallenge,
+            rp: { name: "AppDate Secured", id: window.location.hostname },
+            user: {
+                id: Uint8Array.from(auth.currentUser.uid, c => c.charCodeAt(0)),
+                name: auth.currentUser.email || "User",
+                displayName: "AppDate User"
+            },
+            pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+            authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+            timeout: 60000
+        };
+
+        const credential = await navigator.credentials.create({ publicKey });
+
+        // Save ID to know we have it. 
+        // Note: In a real backend scenario, we would send this to server.
+        // Here we just use it as a "local toggle" confirmation.
+        localStorage.setItem(BIO_KEY, "active");
+
+        alert("Face ID / Touch ID erfolgreich eingerichtet!");
+
+    } catch (e) {
+        console.error("Bio Setup Error:", e);
+        alert("Einrichtung fehlgeschlagen: " + e.message);
+    }
+}
+
+window.triggerBiometricUnlock = async function () {
+    try {
+        const randomChallenge = new Uint8Array(32);
+        window.crypto.getRandomValues(randomChallenge);
+
+        const publicKey = {
+            challenge: randomChallenge,
+            rpId: window.location.hostname,
+            userVerification: "required",
+            timeout: 60000
+        };
+
+        // This triggers the System FaceID/TouchID prompt
+        await navigator.credentials.get({ publicKey });
+
+        // If we survive this call, it means the user passed verification.
+        // Since we are checking against "Platform Authenticator", the device confirmed "User is Owner".
+        // Trusts: Device OS.
+
+        // Success -> Unlock
+        finalizeUnlock();
+
+    } catch (e) {
+        console.error("Bio Unlock Error:", e);
+        // Silent fail or shake
+        shake();
+    }
+};
