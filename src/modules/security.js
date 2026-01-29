@@ -393,7 +393,8 @@ async function registerBiometric() {
         // Save ID to know we have it. 
         // Note: In a real backend scenario, we would send this to server.
         // Here we just use it as a "local toggle" confirmation.
-        localStorage.setItem(BIO_KEY, "active");
+        // We store the ID to allow "direct" unlock without selection UI.
+        localStorage.setItem(BIO_KEY, credential.id);
 
         alert("Face ID / Touch ID erfolgreich eingerichtet!");
 
@@ -414,6 +415,30 @@ async function triggerBiometricUnlock() {
             userVerification: "required",
             timeout: 60000
         };
+
+        // If we have a stored ID, provide it to skip the "Passkey Selection" screen
+        // and jump straight to FaceID/TouchID.
+        const storedBioId = localStorage.getItem(BIO_KEY);
+        if (storedBioId && storedBioId !== 'active') {
+            try {
+                // Convert Base64URL to Uint8Array for the allowCredentials list
+                // Base64Url: - -> +, _ -> /
+                const base64 = storedBioId.replace(/-/g, '+').replace(/_/g, '/');
+                // Pad if necessary (though usually atob handles it, strict base64 might need padding)
+                const pad = base64.length % 4;
+                const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
+
+                const binId = Uint8Array.from(atob(paddedBase64), c => c.charCodeAt(0));
+
+                publicKey.allowCredentials = [{
+                    type: 'public-key',
+                    id: binId,
+                    transports: ['internal'] // Hint to use internal authenticator (FaceID/TouchID)
+                }];
+            } catch (err) {
+                console.warn("Could not decode stored BioID, falling back to discovery.", err);
+            }
+        }
 
         // This triggers the System FaceID/TouchID prompt
         await navigator.credentials.get({ publicKey });
