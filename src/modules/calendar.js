@@ -1,7 +1,7 @@
 import { state } from '../store.js';
 import { db, firebase } from '../config.js';
 
-const APP_VERSION = 'v1.6.0';
+const APP_VERSION = 'v1.6.1';
 
 export function initCalendar() {
     console.log("AppDate Version:", APP_VERSION);
