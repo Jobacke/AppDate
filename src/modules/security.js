@@ -12,7 +12,6 @@ export function initSecurity() {
     window.openSecuritySettings = openSecuritySettings;
     window.closeSecurityModal = closeSecurityModal;
     window.startPinChange = startPinChange;
-    window.startPinChange = startPinChange;
     // window.startPinRemoval = startPinRemoval; // Removed for security
     window.lockApp = lockApp;
     window.confirmPinAction = confirmPinAction;
