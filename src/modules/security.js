@@ -12,11 +12,14 @@ export function initSecurity() {
     window.openSecuritySettings = openSecuritySettings;
     window.closeSecurityModal = closeSecurityModal;
     window.startPinChange = startPinChange;
+    window.startPinChange = startPinChange;
     // window.startPinRemoval = startPinRemoval; // Removed for security
     window.lockApp = lockApp;
     window.confirmPinAction = confirmPinAction;
     window.cancelPinAction = cancelPinAction;
     window.clearPinDigit = clearPinDigit;
+    window.triggerBiometricUnlock = triggerBiometricUnlock;
+    window.setupBiometricFromSettings = setupBiometricFromSettings; // New Manual Setup
 
     // Bind Security Button
     const btnSecurity = document.getElementById('btnSecurity');
@@ -222,10 +225,24 @@ function resetModalView() {
 
     modalMode = 'none';
 
-    // Show Manage Section (Since we are logged in to see this)
-    // If not logged in, we wouldn't see settings.
     document.getElementById('pinManageSection').classList.remove('hidden');
     document.getElementById('pinSetupSection').classList.add('hidden');
+
+    // Update Manual Bio Button Visibility
+    const btnBio = document.getElementById('btnSetupBioManual');
+    if (btnBio) {
+        if (window.PublicKeyCredential) {
+            btnBio.classList.remove('hidden');
+            // Change Text if already active?
+            if (localStorage.getItem(BIO_KEY)) {
+                btnBio.innerHTML = '<i class="ph-check-circle-bold text-xl"></i> Face ID aktiv (Neu koppeln)';
+            } else {
+                btnBio.innerHTML = '<i class="ph-fingerprint-simple-bold text-xl"></i> Face ID / Touch ID koppeln';
+            }
+        } else {
+            btnBio.classList.add('hidden');
+        }
+    }
 }
 
 function showPinView(title, desc, mode) {
@@ -405,3 +422,10 @@ window.triggerBiometricUnlock = async function () {
         shake();
     }
 };
+
+async function setupBiometricFromSettings() {
+    if (!confirm("Möchtest du dieses Gerät mit deinem Account verknüpfen (via FaceID/TouchID)?")) return;
+    await registerBiometric();
+    // Refresh UIO
+    resetModalView();
+}
