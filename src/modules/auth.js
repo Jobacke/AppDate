@@ -1,33 +1,58 @@
 import { auth } from '../config.js';
 import { state } from '../store.js';
 import { subscribeCalendar, unsubscribeCalendar } from './calendar.js';
-import { checkLockRequirement } from './security.js';
+import { showLockScreen, hideLockScreen } from './security.js';
+
+// Helper to centrally manage "Unlocked" state
+export function finalizeUnlock() {
+    const app = document.getElementById('app');
+
+    // 1. Mark session as unlocked
+    sessionStorage.setItem('APP_UNLOCKED', 'true');
+
+    // 2. UI Updates
+    hideLockScreen();
+    if (app) app.classList.remove('hidden');
+
+    // 3. Load Data
+    subscribeCalendar();
+}
+
 
 export function initAuth() {
     // Monitor Auth State
     auth.onAuthStateChanged(async user => {
+        const app = document.getElementById('app');
+
         if (user) {
-            console.log("User authenticated:", user.uid);
+            console.log("Auth State: User is authenticated.", user.uid);
             state.currentUser = user;
 
-            // Critical: Check if this user needs a PIN lock
-            // This function checks Firestore and shows the lock screen if a PIN hash exists.
-            await checkLockRequirement();
+            // CHECK SESSION LOCK:
+            // Even if we are "Remembered" by Firebase, we require a session unlock (PIN)
+            // for every new tab/reload to satisfy the "Pin Lock" requirement.
+            const isSessionUnlocked = sessionStorage.getItem('APP_UNLOCKED') === 'true';
 
-            // Make the main app container visible.
-            // If locked, the #lockScreen overlay (z-index 100) will cover it.
-            const app = document.getElementById('app');
-            if (app) app.classList.remove('hidden');
+            if (isSessionUnlocked) {
+                console.log("Session verified. Unlocking.");
+                finalizeUnlock();
+            } else {
+                console.log("New Session / Locked. Showing Lock Screen.");
+                // Ensure UI is locked
+                showLockScreen();
+                // Ensure Data is NOT subscribed yet
+                unsubscribeCalendar();
+            }
 
-            subscribeCalendar();
         } else {
-            console.log("User not logged in.");
+            console.log("Auth State: User not logged in.");
             state.currentUser = null;
-            unsubscribeCalendar();
+            // Clear session flag just in case
+            sessionStorage.removeItem('APP_UNLOCKED');
 
-            // If not logged in, we rely on anonymous login or explicit login flow.
-            // But usually anonymous login kicks in automatically if enabled.
+            unsubscribeCalendar();
+            showLockScreen();
+            if (app) app.classList.add('hidden');
         }
     });
 }
-

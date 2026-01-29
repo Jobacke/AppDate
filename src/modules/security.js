@@ -1,5 +1,7 @@
 import { db, auth, firebase, SHARED_USER_EMAIL, PIN_SALT } from '../config.js';
 import { state } from '../store.js';
+import { finalizeUnlock } from './auth.js';
+
 
 // State
 let currentPinInput = [];
@@ -57,6 +59,12 @@ export function hideLockScreen() {
 }
 
 export function lockApp() {
+    // Explicitly clear session flag
+    sessionStorage.removeItem('APP_UNLOCKED');
+
+    // We can either signOut (requiring strict online re-auth) 
+    // OR just reload page to trigger lock screen (lighter).
+    // Given the requirement "Cloud-based", SignOut is safest.
     auth.signOut().then(() => {
         console.log("App Locked via SignOut");
         // auth.js listener will trigger showLockScreen
@@ -117,6 +125,7 @@ function updatePinDisplay() {
 
 async function verifyLockScreenPin() {
     const pin = currentPinInput.join('');
+    // For Shared Account: PIN + Salt = Password
     const password = pin + PIN_SALT;
 
     // UI Feedback
@@ -124,18 +133,27 @@ async function verifyLockScreenPin() {
     msgEl.textContent = 'Prüfe...';
 
     try {
+        // ALWAYS Verify against Cloud (Auth).
+        // If we are already logged in (cached), this check confirms the PIN/Password is correct.
+        // If we are not logged in, this logs us in.
         await auth.signInWithEmailAndPassword(SHARED_USER_EMAIL, password);
-        // Success: OnAuthStateChanged in auth.js will hide lock screen
+
+        // If we get here, PIN is correct.
         msgEl.textContent = 'Erfolg';
+
+        // Trigger Unlock Sequence
+        finalizeUnlock();
+
     } catch (error) {
         console.error("Login Error:", error);
 
         if (error.code === 'auth/user-not-found') {
-            // First run recovery
-            if (confirm("Kein PIN eingerichtet. Möchtest du diesen PIN jetzt festlegen?")) {
+            // First run recovery / Setup
+            if (confirm("Kein PIN eingerichtet (Benutzer nicht gefunden). Möchtest du diesen PIN jetzt als Passwort festlegen?")) {
                 try {
                     await auth.createUserWithEmailAndPassword(SHARED_USER_EMAIL, password);
-                    // Success
+                    // Success -> Auto logged in
+                    finalizeUnlock();
                 } catch (e) {
                     showLockError("Erstellen fehlgeschlagen: " + e.message);
                     shake();
