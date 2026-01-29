@@ -1,14 +1,17 @@
 import { db, auth, firebase, SHARED_USER_EMAIL, PIN_SALT } from '../config.js';
 import { state } from '../store.js';
-import { finalizeUnlock } from './auth.js';
+// Removed circular import: import { finalizeUnlock } from './auth.js';
 
 
 // State
 let currentPinInput = [];
 let modalMode = 'none'; // 'setup', 'change-verify-old', 'change-new'
+let unlockCallback = null; // Callback to trigger unlock in auth.js
 
 // Exports for HTML
-export function initSecurity() {
+export function initSecurity(onUnlockSuccess) {
+    if (onUnlockSuccess) unlockCallback = onUnlockSuccess;
+
     window.openSecuritySettings = openSecuritySettings;
     window.closeSecurityModal = closeSecurityModal;
     window.startPinChange = startPinChange;
@@ -139,7 +142,7 @@ async function verifyLockScreenPin() {
         await auth.signInWithEmailAndPassword(dynamicEmail, password);
 
         msgEl.textContent = 'Erfolg';
-        finalizeUnlock();
+        if (unlockCallback) unlockCallback();
 
         // Ask for Biometric Setup if tech supported and not yet done
         setTimeout(async () => {
@@ -159,7 +162,7 @@ async function verifyLockScreenPin() {
             if (confirm(`PIN ${pin} ist noch nicht eingerichtet. Möchtest du ihn jetzt aktivieren?`)) {
                 try {
                     await auth.createUserWithEmailAndPassword(dynamicEmail, password);
-                    finalizeUnlock();
+                    if (unlockCallback) unlockCallback();
                 } catch (e) {
                     showLockError("Fehler: " + e.message);
                     shake();
@@ -413,7 +416,7 @@ window.triggerBiometricUnlock = async function () {
         // Trusts: Device OS.
 
         // Success -> Unlock
-        finalizeUnlock();
+        if (unlockCallback) unlockCallback();
 
     } catch (e) {
         console.error("Bio Unlock Error:", e);
