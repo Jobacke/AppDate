@@ -1,5 +1,7 @@
 import { state } from '../store.js';
 import { db, firebase } from '../config.js';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const APP_VERSION = 'v1.6.3';
 
@@ -42,6 +44,7 @@ window.jumpToDate = jumpToDate;
 
 window.exportManualAppointments = exportManualAppointments;
 window.handleBackupUpload = handleBackupUpload;
+window.exportOverviewPdf = exportOverviewPdf;
 
 let exchangeUnsubscribe = null;
 let appUnsubscribe = null;
@@ -527,6 +530,135 @@ async function handleIcsUpload(input) {
     } catch (e) {
         console.error("Import Error:", e);
         alert('Fehler: ' + e.message);
+    }
+}
+
+// === PDF Export ===
+
+async function exportOverviewPdf() {
+    try {
+        const doc = new jsPDF();
+        
+        // 1. Determine Date Range logic (Duplicated to ensure consistency with view)
+        const now = new Date();
+        let startLimit, endLimit, dateRangeText;
+
+        if (overviewRange === 'week') {
+            const current = new Date(now);
+            const day = current.getDay() || 7;
+            if (day !== 1) current.setHours(-24 * (day - 1));
+            startLimit = current.toISOString().split('T')[0];
+            const end = new Date(current);
+            end.setDate(end.getDate() + 6);
+            endLimit = end.toISOString().split('T')[0];
+            dateRangeText = `Woche: ${startLimit} bis ${endLimit}`;
+
+        } else if (overviewRange === 'month') {
+            startLimit = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+            endLimit = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+            const monthName = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+            dateRangeText = `Monat: ${monthName}`;
+
+        } else if (overviewRange === 'year') {
+            startLimit = `${now.getFullYear()}-01-01`;
+            endLimit = `${now.getFullYear()}-12-31`;
+            dateRangeText = `Jahr: ${now.getFullYear()}`;
+
+        } else if (overviewRange === 'custom') {
+            startLimit = document.getElementById('ovStart').value;
+            endLimit = document.getElementById('ovEnd').value;
+            if(!startLimit || !endLimit) {
+                alert("Bitte erst einen Zeitraum auswählen.");
+                return;
+            }
+            dateRangeText = `Zeitraum: ${startLimit} bis ${endLimit}`;
+        }
+
+        // 2. Fetch and Filter Events
+        // Filter STRICTLY for: Source=APP OR (Source=Exchange AND isAppRelevant)
+        let events = state.allEvents || [];
+
+        const pdfEvents = events.filter(e => {
+            // Strict App Filter Override
+            const isManual = e.source === 'app' || (!e.source && !e.type);
+            const isExchangeAppRelevant = (e.source === 'exchange' || e.source === 'imported') && e.isAppRelevant;
+            
+            if (!isManual && !isExchangeAppRelevant) return false;
+
+            // Date Filter
+            const dateStr = (e.start || '').split('T')[0];
+            if (startLimit && dateStr < startLimit) return false;
+            if (endLimit && dateStr > endLimit) return false;
+
+            return true;
+        });
+
+        pdfEvents.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+
+        if (pdfEvents.length === 0) {
+            alert('Keine Termine für diesen Zeitraum gefunden (nur App-Relevante werden gedruckt).');
+            return;
+        }
+
+        // 3. Build PDF
+        
+        // -- Header --
+        doc.setFontSize(18);
+        doc.setTextColor(40, 40, 40);
+        doc.text("AppDate Terminübersicht", 14, 20);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Erstellt am: ${now.toLocaleDateString('de-DE')} ${now.toLocaleTimeString('de-DE')}`, 14, 26);
+        doc.text(dateRangeText, 14, 32);
+
+        // -- Table --
+        const tableBody = pdfEvents.map(e => {
+            const d = new Date(e.start);
+            const dateStr = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
+            const timeStr = e.isAllDay ? 'Ganztägig' : d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            
+            return [
+                dateStr,
+                timeStr,
+                e.title || '',
+                e.location || ''
+            ];
+        });
+
+        autoTable(doc, {
+            head: [['Datum', 'Zeit', 'Titel', 'Ort']],
+            body: tableBody,
+            startY: 40,
+            styles: {
+                fontSize: 10,
+                cellPadding: 3,
+            },
+            headStyles: {
+                fillColor: [41, 128, 185], // Brand Blue
+                textColor: 255,
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: {
+                fillColor: [245, 245, 245]
+            },
+            margin: { top: 40 }
+        });
+
+        // -- Footer / Save --
+        const pageCount = doc.internal.getNumberOfPages();
+        for(let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Seite ${i} von ${pageCount}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10, { align: 'right' });
+        }
+
+        doc.save(`AppDate_Termine_${startLimit}_${endLimit}.pdf`);
+
+    } catch (e) {
+        console.error("PDF Export Error:", e);
+        alert("Fehler beim PDF Export: " + e.message);
     }
 }
 
