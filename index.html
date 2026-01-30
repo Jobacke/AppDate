@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0066ff">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>AppDate</title>
+  <script type="module" crossorigin src="/assets/index-CAz82vv1.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DbE3Xsy4.css">
+</head>
+
+<body class="bg-br-900 text-white min-h-screen font-sans selection:bg-blue-500/30">
+
+  <!-- App Content -->
+  <div id="app" class="hidden w-full max-w-[95%] mx-auto pb-20">
+    <!-- Header (Identical to AppAZeit style) -->
+    <header class="bg-gradient-to-r from-blue-800 to-blue-600 p-4 sticky top-0 z-40 shadow-lg rounded-b-xl mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-xl font-bold flex items-center gap-2 text-white">
+          <span class="text-2xl">📅</span>
+          AppDate <span class="text-xs text-blue-200 ml-2 opacity-70 app-version-label">v1.6.3
+            <!-- Build 2026-01-29T20:06 --></span>
+        </h1>
+
+        <!-- Status / Sync Indicator -->
+        <div class="flex items-center gap-2">
+          <!-- Possible Sync/User Icon here later -->
+        </div>
+      </div>
+
+      <!-- Toolbar / Navigation Area -->
+      <div
+        class="flex flex-wrap gap-3 items-center bg-br-800/50 p-2 rounded-lg border border-blue-500/30 backdrop-blur-sm">
+
+        <!-- Date Navigation -->
+        <button onclick="jumpToToday()"
+          class="px-4 py-2 bg-br-700 hover:bg-br-600 rounded-lg text-sm font-medium border border-br-600 transition-colors">
+          Heute
+        </button>
+        <input type="date" id="dateNav"
+          class="bg-br-700 hover:bg-br-600 border border-br-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-400 cursor-pointer"
+          onchange="jumpToDate(this.value)">
+
+        <!-- Filter Control -->
+        <div class="bg-br-800 p-1 rounded-xl border border-br-600 flex gap-1 shadow-sm">
+          <button onclick="setCalendarFilter('all')" id="filter-btn-all"
+            class="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white shadow transition-all">
+            Alle
+          </button>
+          <button onclick="setCalendarFilter('exchange')" id="filter-btn-exchange"
+            class="px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all">
+            Outlook
+          </button>
+          <button onclick="setCalendarFilter('manual')" id="filter-btn-manual"
+            class="px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all">
+            App
+          </button>
+        </div>
+
+        <div class="flex-grow"></div>
+
+        <!-- Search -->
+        <div class="relative group mr-2">
+          <input type="text" id="calendarSearch" placeholder="Suchen..." oninput="filterBySearch(this.value)"
+            class="bg-br-800/80 border border-br-600/50 rounded-full pl-9 pr-4 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 w-32 focus:w-48 transition-all duration-300 shadow-inner placeholder-br-400">
+          <i class="ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-br-300 pointer-events-none"></i>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-3">
+
+          <!-- Manual Backup Controls -->
+          <!-- Manual Backup Controls -->
+          <div
+            class="flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1 pr-2 border border-white/20 shadow-sm">
+
+            <!-- Label -->
+            <span
+              class="text-[10px] font-bold text-blue-100 uppercase tracking-wider ml-2 mr-1 cursor-default select-none">Backup</span>
+
+            <!-- Divider -->
+            <div class="w-px h-4 bg-white/20 mx-1"></div>
+
+            <button onclick="exportManualAppointments()" title="Manuelle Termine exportieren"
+              class="p-1.5 text-white hover:bg-white/20 rounded transition-colors group flex items-center gap-1">
+              <span class="text-xs font-medium px-1 text-red-300">Export</span>
+              <i class="ph-download-simple-bold text-lg group-hover:scale-110 transition-transform"></i>
+            </button>
+
+            <label title="Backup wiederherstellen"
+              class="p-1.5 text-white hover:bg-white/20 rounded transition-colors cursor-pointer group flex items-center gap-1">
+              <span class="text-xs font-medium px-1 text-red-300">Import</span>
+              <i class="ph-upload-simple-bold text-lg group-hover:scale-110 transition-transform"></i>
+              <input type="file" accept=".json" class="hidden" onchange="handleBackupUpload(this)">
+            </label>
+          </div>
+          <!-- ICS Reset/Import Button -->
+          <div
+            class="flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1 pr-2 border border-white/20 shadow-sm transition-all hover:bg-white/15">
+            <!-- Label -->
+            <span
+              class="text-[10px] font-bold text-blue-100 uppercase tracking-wider ml-2 mr-1 cursor-default select-none">Exchange</span>
+
+            <!-- Divider -->
+            <div class="w-px h-4 bg-white/20 mx-1"></div>
+
+            <label for="icsInput"
+              class="p-1.5 text-white hover:bg-white/20 rounded transition-colors cursor-pointer group flex items-center gap-1"
+              title="ICS Reset starten">
+              <span class="text-xs font-medium px-1 text-red-300">Reset / Import</span>
+              <i class="ph-file-arrow-up-bold text-lg group-hover:scale-110 transition-transform"></i>
+            </label>
+            <input type="file" id="icsInput" accept=".ics" class="hidden" onchange="handleIcsUpload(this)">
+          </div>
+
+          <!-- Security/Settings Button -->
+          <button id="btnSecurity" title="Sicherheitseinstellungen"
+            class="bg-br-800 text-br-300 hover:text-white px-3 py-2.5 rounded-xl transition-colors border border-br-600/50 flex items-center gap-2">
+            <i class="ph-shield-check text-xl"></i>
+          </button>
+
+          <!-- Selection Mode Toggle -->
+          <button onclick="toggleSelectionMode()" id="btnSelectionMode" title="Mehrfachauswahl für Löschen"
+            class="bg-br-800 text-br-300 hover:text-white px-3 py-2.5 rounded-xl transition-colors border border-br-600/50 group relative flex items-center gap-2">
+            <i class="ph-checks-bold text-xl"></i>
+            <span class="text-sm font-medium">Löschauswahl</span>
+            <span id="selectionCountBadge"
+              class="hidden absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-bold w-4 h-4 rounded-full items-center justify-center">0</span>
+          </button>
+
+          <!-- Delete Selected Button (Hidden by default) -->
+          <button id="btnDeleteSelected" onclick="deleteSelectedAppointments()"
+            class="hidden bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-red-500/20 flex items-center gap-2 transition-all animate-in fade-in zoom-in duration-200">
+            <i class="ph-trash-bold"></i>
+            <span class="hidden sm:inline">Löschen</span>
+          </button>
+
+          <button onclick="openAddAppointmentModal()"
+            class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-green-500/20 flex items-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+            <i class="ph-plus-bold"></i>
+            <span class="hidden sm:inline">Neuer Termin</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="p-4 space-y-4">
+      <!-- Calendar List -->
+      <div id="calendarList">
+        <div class="text-center text-br-300 py-8">Lade Termine...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editAppointmentModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop">
+    <div class="bg-br-800 rounded-2xl p-6 m-4 max-w-md w-full border border-br-600 shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="modalTitleAppt" class="text-lg font-bold text-white">Termin</h3>
+        <button onclick="closeEditAppointmentModal()" class="text-br-200 hover:text-white text-2xl">&times;</button>
+      </div>
+
+      <input type="hidden" id="apptId">
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-br-200 mb-1 block">Titel *</label>
+          <input type="text" id="apptTitle" placeholder="Titel"
+            class="w-full bg-br-700 border border-br-500 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="text-xs text-br-200 mb-1 block">Datum *</label>
+            <input type="date" id="apptDate"
+              class="w-full bg-br-700 border border-br-500 rounded-lg p-3 text-sm text-white">
+          </div>
+          <div>
+            <label class="text-xs text-br-200 mb-1 block">Start</label>
+            <input type="time" id="apptStart"
+              class="w-full bg-br-700 border border-br-500 rounded-lg p-3 text-sm text-white">
+          </div>
+          <div>
+            <label class="text-xs text-br-200 mb-1 block">Ende</label>
+            <input type="time" id="apptEnd"
+              class="w-full bg-br-700 border border-br-500 rounded-lg p-3 text-sm text-white">
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="apptAllDay" class="w-4 h-4 rounded border-gray-500 bg-gray-700">
+          <label for="apptAllDay" class="text-sm cursor-pointer">Ganztägig</label>
+        </div>
+
+        <!-- Reminder Section -->
+        <div class="pt-2 border-t border-br-600/50 mt-2">
+          <div class="flex items-center gap-2 mb-2">
+            <input type="checkbox" id="apptReminderActive" class="w-4 h-4 rounded border-gray-500 bg-gray-700">
+            <label for="apptReminderActive" class="text-sm cursor-pointer flex items-center gap-2">
+              <i class="ph-bell-simple"></i> Erinnerung
+            </label>
+          </div>
+
+          <div id="reminderOptions" class="hidden pl-6 flex items-center gap-2">
+            <input type="number" id="apptReminderValue" value="15" min="1" max="999"
+              class="w-16 bg-br-700 border border-br-500 rounded-lg p-2 text-sm text-white text-center">
+            <select id="apptReminderUnit"
+              class="bg-br-700 border border-br-500 rounded-lg p-2 text-sm text-white focus:outline-none">
+              <option value="minutes">Minuten vorher</option>
+              <option value="hours">Stunden vorher</option>
+              <option value="days">Tage vorher</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="exchangeOptions" class="pt-2 border-t border-br-600/50 mt-2">
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="apptIsAppRelevant"
+              class="w-4 h-4 rounded border-gray-500 bg-gray-700 accent-purple-500">
+            <label for="apptIsAppRelevant" class="text-sm cursor-pointer text-purple-300 font-medium">Auch in App Filter
+              anzeigen</label>
+          </div>
+          <p class="text-[10px] text-br-400 mt-1 ml-6">Dieser Outlook-Termin erscheint dann auch im lokalen
+            "App"-Filter.</p>
+        </div>
+
+        <!-- Recurrence Section -->
+        <div class="pt-2 border-t border-br-600/50 space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-br-200 mb-1 block">Wiederholung</label>
+              <select id="apptRecurrence"
+                class="w-full bg-br-700 border border-br-500 rounded-lg p-2.5 text-sm text-white focus:outline-none">
+                <option value="none">Keine</option>
+                <option value="daily">Täglich</option>
+                <option value="weekly">Wöchentlich</option>
+                <option value="monthly">Monatlich</option>
+                <option value="yearly">Jährlich</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-br-200 mb-1 block">Endet am</label>
+              <input type="date" id="apptRecurrenceEnd"
+                class="w-full bg-br-700 border border-br-500 rounded-lg p-2.5 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed">
+            </div>
+          </div>
+
+          <!-- Interval (Alle X ...) -->
+          <div id="recurrenceIntervalGroup" class="hidden">
+            <label class="text-xs text-br-200 mb-1 block">Wiederhole alle (Intervall)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="apptRecurrenceInterval" value="1" min="1"
+                class="w-20 bg-br-700 border border-br-500 rounded-lg p-2.5 text-sm text-white">
+              <span class="text-sm text-br-300" id="recurrenceUnitLabel">Tage/Wochen</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs text-br-200 mb-1 block">Ort</label>
+          <input type="text" id="apptLocation" placeholder="Ort"
+            class="w-full bg-br-700 border border-br-500 rounded-lg p-3 text-sm text-white">
+        </div>
+
+        <div>
+          <label class="text-xs text-br-200 mb-1 block">Beschreibung</label>
+          <textarea id="apptDescription" placeholder="Beschreibung..."
+            class="w-full bg-br-700 border border-br-500 rounded-lg p-3 text-sm text-white h-20 resize-none"></textarea>
+        </div>
+      </div>
+
+      <div class="flex justify-between mt-6">
+        <!-- Standard Delete (for non-recurring) -->
+        <button id="btnDeleteAppt" onclick="deleteAppointment()"
+          class="p-3 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 hidden transition-colors">
+          <i class="ph-trash text-xl"></i>
+        </button>
+
+        <!-- Recurring Delete Options (hidden by default) -->
+        <div id="btnGroupRecurringDelete" class="hidden flex gap-2">
+          <button onclick="deleteCurrentInstance()"
+            class="px-4 py-2 bg-red-500/10 text-red-400 text-sm rounded-lg hover:bg-red-500/20 transition-colors border border-red-500/20"
+            title="Nur diesen Termin löschen">
+            Nur diesen
+          </button>
+          <button onclick="deleteSeries()"
+            class="px-4 py-2 bg-red-900/20 text-red-700 text-sm rounded-lg hover:bg-red-900/40 transition-colors border border-red-900/20"
+            title="Ganze Serie löschen">
+            Ganze Serie
+          </button>
+        </div>
+
+        <div class="flex gap-2 ml-auto">
+          <button onclick="closeEditAppointmentModal()"
+            class="px-4 py-2 text-br-300 hover:text-white transition-colors">Abbrechen</button>
+          <button onclick="saveAppointmentEdit()"
+            class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20">Speichern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Confirmation Modal -->
+  <div id="resetConfirmModal"
+    class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div
+      class="bg-br-800 rounded-2xl p-6 max-w-sm w-full border border-red-500/50 shadow-2xl text-center transform transition-all scale-100">
+      <div class="text-5xl mb-4">⚠️</div>
+      <h3 class="text-xl font-bold text-white mb-2">Warnung</h3>
+      <p class="text-br-200 text-sm mb-6 leading-relaxed">
+        Möchtest du wirklich <b>ALLE bestehenden Termine löschen</b> und die Datei importieren?
+        <br><br>
+        Dies kann nicht rückgängig gemacht werden.
+      </p>
+      <div class="flex flex-col gap-3">
+        <button onclick="executeReset()"
+          class="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold shadow-lg shadow-red-500/20 transition-transform active:scale-95">
+          Alles Löschen & Importieren
+        </button>
+        <button onclick="cancelReset()"
+          class="w-full py-3 bg-br-700 hover:bg-br-600 text-br-200 rounded-xl font-medium transition-colors">
+          Abbrechen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overview/Summary View (Initially Hidden) -->
+  <div id="overviewView" class="hidden w-full max-w-[95%] mx-auto pb-24">
+
+    <!-- Filter Toolbar for Overview -->
+    <div class="sticky top-[5.5rem] bg-br-900 z-30 py-2">
+      <div
+        class="flex gap-2 bg-br-800/80 p-1.5 rounded-xl border border-br-600/50 backdrop-blur overflow-x-auto no-scrollbar items-center">
+        <button onclick="setOverviewRange('week')" id="ov-btn-week"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white shadow transition-all whitespace-nowrap">Woche</button>
+        <button onclick="setOverviewRange('month')" id="ov-btn-month"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Monat</button>
+        <button onclick="setOverviewRange('year')" id="ov-btn-year"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Jahr</button>
+        <button onclick="setOverviewRange('custom')" id="ov-btn-custom"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Benutzerdefiniert</button>
+
+        <!-- PDF Export -->
+        <button onclick="exportOverviewPdf()" title="Als PDF drucken"
+          class="px-2 py-1.5 text-xs font-medium rounded-lg bg-br-700 text-br-200 hover:bg-br-600 hover:text-white transition-all flex items-center justify-center border border-br-600">
+          <i class="ph-printer-bold text-lg"></i>
+          <span class="ml-1 hidden sm:inline">PDF</span>
+        </button>
+
+        <!-- Divider -->
+        <div class="w-px h-6 bg-br-600 mx-1 flex-shrink-0"></div>
+
+        <!-- Source Filters -->
+        <button onclick="setCalendarFilter('all')" id="ov-filter-btn-all"
+          class="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white shadow transition-all whitespace-nowrap">Alle</button>
+        <button onclick="setCalendarFilter('exchange')" id="ov-filter-btn-exchange"
+          class="px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">Outlook</button>
+        <button onclick="setCalendarFilter('manual')" id="ov-filter-btn-manual"
+          class="px-3 py-1.5 text-xs font-medium rounded-lg text-br-300 hover:text-white transition-all whitespace-nowrap">App</button>
+      </div>
+
+      <!-- Custom Date Inputs -->
+      <div id="overviewCustomInputs"
+        class="hidden mt-2 flex gap-2 items-center bg-br-800/80 p-2 rounded-xl border border-br-600/50">
+        <input type="date" id="ovStart" class="bg-br-700 text-white px-2 py-1 rounded text-xs border border-br-600"
+          onchange="renderOverview()">
+        <span class="text-br-400">-</span>
+        <input type="date" id="ovEnd" class="bg-br-700 text-white px-2 py-1 rounded text-xs border border-br-600"
+          onchange="renderOverview()">
+      </div>
+    </div>
+
+    <!-- Overview Content -->
+    <div id="overviewList" class="space-y-4 mt-4">
+      <!-- Content injected via JS -->
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="fixed bottom-4 left-0 right-0 z-50 flex justify-center pointer-events-none">
+    <div
+      class="bg-br-800/90 backdrop-blur-xl border border-br-600/50 rounded-2xl shadow-2xl p-1.5 flex gap-1 pointer-events-auto">
+
+      <button onclick="switchView('calendar')" id="nav-btn-calendar"
+        class="flex flex-col items-center justify-center w-16 h-14 rounded-xl text-blue-400 bg-blue-500/10 transition-all active:scale-95 group">
+        <i class="ph-calendar-blank-bold text-2xl mb-1 group-hover:-translate-y-0.5 transition-transform"></i>
+        <span class="text-[10px] font-medium">Kalender</span>
+      </button>
+
+      <button onclick="switchView('overview')" id="nav-btn-overview"
+        class="flex flex-col items-center justify-center w-16 h-14 rounded-xl text-br-400 hover:text-br-200 transition-all active:scale-95 group">
+        <i class="ph-list-dashes-bold text-2xl mb-1 group-hover:-translate-y-0.5 transition-transform"></i>
+        <span class="text-[10px] font-medium">Übersicht</span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- Lock Screen Overlay -->
+  <div id="lockScreen" class="fixed inset-0 z-[100] bg-br-900 hidden flex-col items-center justify-center p-4">
+    <div class="max-w-xs w-full flex flex-col items-center space-y-8 animate-fade-in">
+      <div class="text-center space-y-2">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-600/20 text-blue-400 mb-2">
+          <i class="ph-lock-key-bold text-3xl"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-white">AppDate Geschützt</h2>
+        <p class="text-br-300 text-sm">Bitte gib deinen PIN-Code ein</p>
+      </div>
+
+      <!-- PIN Dots -->
+      <div class="flex gap-4 justify-center my-4" id="pinDisplayDots">
+        <div class="w-4 h-4 rounded-full bg-br-700 border border-br-600 transition-colors duration-200"></div>
+        <div class="w-4 h-4 rounded-full bg-br-700 border border-br-600 transition-colors duration-200"></div>
+        <div class="w-4 h-4 rounded-full bg-br-700 border border-br-600 transition-colors duration-200"></div>
+        <div class="w-4 h-4 rounded-full bg-br-700 border border-br-600 transition-colors duration-200"></div>
+      </div>
+
+      <!-- Number Pad -->
+      <div class="grid grid-cols-3 gap-4 w-full px-4">
+        <!-- Digits 1-9 generated via JS or hardcoded -->
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="1">1</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="2">2</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="3">3</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="4">4</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="5">5</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="6">6</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="7">7</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="8">8</button>
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="9">9</button>
+
+        <!-- Bio Button (Left) -->
+        <button id="btnBiometricUnlock"
+          class="hidden h-16 rounded-full text-blue-400 hover:text-blue-300 items-center justify-center transition-all active:scale-95"
+          onclick="triggerBiometricUnlock()">
+          <i class="ph-fingerprint-bold text-3xl"></i>
+        </button>
+
+        <button
+          class="pin-key h-16 rounded-full bg-br-800/50 hover:bg-br-700 border border-br-600/30 text-xl font-medium transition-all active:scale-95"
+          data-num="0">0</button>
+        <button
+          class="h-16 rounded-full text-red-400 hover:text-red-300 flex items-center justify-center transition-all active:scale-95"
+          onclick="clearPinDigit()">
+          <i class="ph-backspace-bold text-2xl"></i>
+        </button>
+      </div>
+      <p id="lockMessage" class="h-4 text-xs text-red-400 font-medium text-center"></p>
+    </div>
+  </div>
+
+  <!-- Security Settings Modal -->
+  <div id="securityModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop">
+    <div class="bg-br-800 rounded-2xl p-6 m-4 max-w-sm w-full border border-br-600 shadow-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="ph-shield-check text-blue-400"></i> Sicherheit
+        </h3>
+        <button onclick="closeSecurityModal()" class="text-br-200 hover:text-white text-2xl">&times;</button>
+      </div>
+
+      <div id="securityMainView" class="space-y-4">
+        <!-- If PIN is NOT set -->
+        <div id="pinSetupSection" class="hidden">
+          <p class="text-sm text-br-200 mb-4">Schütze deine App mit einem 4-stelligen PIN-Code.</p>
+          <div class="bg-blue-900/10 border border-blue-500/10 p-3 rounded-xl mb-4">
+            <div class="flex gap-3 items-start">
+              <i class="ph-info text-blue-400 mt-0.5"></i>
+              <p class="text-xs text-br-300">Der PIN schützt die App serverseitig. Zugriff ist nur mit diesem PIN
+                möglich.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- If PIN IS set -->
+        <div id="pinManageSection" class="hidden space-y-3">
+          <div class="bg-blue-900/20 border border-blue-500/20 rounded-xl p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center">
+              <i class="ph-check-circle-bold text-xl"></i>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-white">App ist geschützt</p>
+              <p class="text-[10px] text-br-300">Server-Login aktiv</p>
+            </div>
+          </div>
+
+          <button onclick="startPinChange()"
+            class="w-full py-3 bg-br-700 hover:bg-br-600 text-white rounded-xl font-medium border border-br-600 transition-all">
+            PIN ändern
+          </button>
+
+          <button id="btnSetupBioManual" onclick="setupBiometricFromSettings()"
+            class="hidden w-full py-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded-xl font-medium border border-blue-500/30 transition-all flex items-center justify-center gap-2">
+            <i class="ph-fingerprint-simple-bold text-xl"></i> Face ID / Touch ID koppeln
+          </button>
+
+          <button onclick="lockApp()"
+            class="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-medium border border-red-500/20 transition-all">
+            App Sperren
+          </button>
+        </div>
+      </div>
+
+      <!-- PIN Input View (Reuse for Setup/Change/Verify logic in modal) -->
+      <div id="securityPinView" class="hidden flex-col items-center">
+        <h4 id="pinViewTitle" class="text-white font-medium mb-1">Neuen PIN eingeben</h4>
+        <p id="pinViewDesc" class="text-xs text-br-300 mb-6">4 Zahlen wählen</p>
+
+        <!-- Simple Setup Input -->
+        <div class="flex gap-2 justify-center mb-6">
+          <input type="password" id="modalPinInput" maxlength="4" pattern="[0-9]*" inputmode="numeric"
+            class="tracking-[1em] text-center w-32 bg-br-900 border border-br-600 rounded-xl py-2 text-xl text-white focus:border-blue-500 focus:outline-none placeholder-br-700 font-mono">
+        </div>
+
+        <p id="modalPinError" class="text-xs text-red-400 h-4 mb-4 text-center"></p>
+
+        <div class="flex w-full gap-2">
+          <button onclick="cancelPinAction()"
+            class="flex-1 py-2 text-br-300 hover:text-white text-sm transition-colors">Abbrechen</button>
+          <button id="btnConfirmPinAction" onclick="confirmPinAction()"
+            class="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors">Bestätigen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>
