@@ -1328,13 +1328,23 @@ async function saveAppointmentEdit() {
     // If end time is earlier than start time, it means the appointment crosses midnight
     let endDateStr = dateStr;
     if (endTime < startTime) {
-        // Add one day to the end date
-        const startDate = new Date(dateStr);
-        startDate.setDate(startDate.getDate() + 1);
-        const year = startDate.getFullYear();
-        const month = String(startDate.getMonth() + 1).padStart(2, '0');
-        const day = String(startDate.getDate()).padStart(2, '0');
-        endDateStr = `${year}-${month}-${day}`;
+        // Add one day to the end date WITHOUT using Date objects
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const daysInMonth = new Date(year, month, 0).getDate(); // This is safe, only for getting days in month
+        let newDay = day + 1;
+        let newMonth = month;
+        let newYear = year;
+
+        if (newDay > daysInMonth) {
+            newDay = 1;
+            newMonth++;
+            if (newMonth > 12) {
+                newMonth = 1;
+                newYear++;
+            }
+        }
+
+        endDateStr = `${newYear}-${String(newMonth).padStart(2, '0')}-${String(newDay).padStart(2, '0')}`;
     }
 
     const endIso = `${endDateStr}T${endTime}:00`;
