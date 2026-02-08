@@ -1244,28 +1244,32 @@ function editAppointment(id, instanceStart) {
     // Format is: YYYY-MM-DDTHH:MM:SS
     const startTime = currentStart.includes('T') ? currentStart.split('T')[1].substring(0, 5) : '09:00';
 
-    // Calculate end time using duration
+    // Calculate end time using duration from FULL ISO timestamps (not just time)
+    // This handles day-crossing appointments correctly
     const origStart = evt.start;
     const origEnd = evt.end;
 
-    // Extract hours and minutes from ISO strings
-    const getTimeInMinutes = (isoString) => {
-        if (!isoString || !isoString.includes('T')) return 0;
-        const timePart = isoString.split('T')[1];
+    // Parse ISO strings as local time (without timezone conversion)
+    const parseLocalISO = (isoString) => {
+        if (!isoString || !isoString.includes('T')) return null;
+        const [datePart, timePart] = isoString.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
         const [hours, minutes] = timePart.split(':').map(Number);
-        return hours * 60 + minutes;
+        // Create date in local timezone
+        return new Date(year, month - 1, day, hours, minutes);
     };
 
-    const origStartMinutes = getTimeInMinutes(origStart);
-    const origEndMinutes = getTimeInMinutes(origEnd);
-    const durationMinutes = origEndMinutes - origStartMinutes;
+    const origStartDate = parseLocalISO(origStart);
+    const origEndDate = parseLocalISO(origEnd);
+    const durationMs = origEndDate - origStartDate; // Duration in milliseconds
 
-    const currentStartMinutes = getTimeInMinutes(currentStart);
-    const endMinutes = currentStartMinutes + durationMinutes;
+    // Calculate end time by adding duration to current start
+    const currentStartDate = parseLocalISO(currentStart);
+    const calculatedEndDate = new Date(currentStartDate.getTime() + durationMs);
 
-    // Convert back to HH:MM format
-    const endHours = Math.floor(endMinutes / 60) % 24;
-    const endMins = endMinutes % 60;
+    // Extract time from calculated end date
+    const endHours = calculatedEndDate.getHours();
+    const endMins = calculatedEndDate.getMinutes();
     const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
 
     document.getElementById('editAppointmentModal').classList.remove('hidden');
