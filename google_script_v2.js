@@ -1,6 +1,6 @@
 function processCalendarEmails() {
     const SEARCH_QUERY = 'subject:AppDate is:unread in:inbox -in:trash -in:drafts';
-    const SECRET_TOKEN = 'AppDate123'; // Muss mit Flow übereinstimmen
+    const SECRET_TOKEN = 'AppDate'; // Muss mit Flow übereinstimmen
 
     // Konfiguration für Firestore
     const PROJECT_ID = 'appdate-backend'; // Dein Firebase Projekt ID
