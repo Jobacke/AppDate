@@ -837,30 +837,9 @@ export function subscribeCalendar() {
         .onSnapshot(snapshot => {
             const events = snapshot.docs.map(doc => {
                 const data = doc.data();
-                // FIX: Exchange events come in UTC, convert to local time
-                // Outlook sends times in UTC format (e.g., "2026-02-25T21:30:00")
-                // We need to convert them to local time for display
-                let start = data.start;
-                let end = data.end;
-
-                const convertUTCToLocal = (utcString) => {
-                    if (!utcString || !utcString.includes('T')) return utcString;
-                    // Parse as UTC by adding 'Z' if not present
-                    const utcDate = new Date(utcString.endsWith('Z') ? utcString : utcString + 'Z');
-                    // Convert to local ISO string (YYYY-MM-DDTHH:MM:SS)
-                    const year = utcDate.getFullYear();
-                    const month = String(utcDate.getMonth() + 1).padStart(2, '0');
-                    const day = String(utcDate.getDate()).padStart(2, '0');
-                    const hours = String(utcDate.getHours()).padStart(2, '0');
-                    const minutes = String(utcDate.getMinutes()).padStart(2, '0');
-                    const seconds = String(utcDate.getSeconds()).padStart(2, '0');
-                    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-                };
-
-                start = convertUTCToLocal(start);
-                end = convertUTCToLocal(end);
-
-                return { ...data, id: doc.id, start, end, source: 'exchange' };
+                // Exchange events should already be in local time from the import script
+                // Just use them directly without any conversion
+                return { ...data, id: doc.id, source: 'exchange' };
             });
             state.events.exchange = events;
             updateCalendarView();
@@ -1408,28 +1387,8 @@ async function saveAppointmentEdit() {
             const isExchange = state.events.exchange.some(e => e.id === id);
 
             if (isExchange) {
-                // Convert local times back to UTC before saving to Firestore
-                const convertLocalToUTC = (localIsoString) => {
-                    if (!localIsoString || !localIsoString.includes('T')) return localIsoString;
-                    const localDate = new Date(localIsoString);
-                    const year = localDate.getUTCFullYear();
-                    const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
-                    const day = String(localDate.getUTCDate()).padStart(2, '0');
-                    const hours = String(localDate.getUTCHours()).padStart(2, '0');
-                    const minutes = String(localDate.getUTCMinutes()).padStart(2, '0');
-                    const seconds = String(localDate.getUTCSeconds()).padStart(2, '0');
-                    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-                };
-
-                // Convert times to UTC for storage
-                const dataToSave = {
-                    ...data,
-                    start: convertLocalToUTC(data.start),
-                    end: convertLocalToUTC(data.end)
-                };
-
-                // Update Exchange Event in Place
-                await db.collection('exchange_events').doc(id).update(dataToSave);
+                // Update Exchange Event in Place with local times
+                await db.collection('exchange_events').doc(id).update(data);
             } else {
                 // App or Imported Event Update
                 const appDoc = await db.collection('app_events').doc(id).get();

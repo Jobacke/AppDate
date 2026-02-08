@@ -61,6 +61,25 @@ function processCalendarEmails() {
                         data.title = message.getSubject().replace("AppDate", "").trim() || "Unbenannter Termin";
                     }
 
+                    // FIX: Convert UTC times to local time (CET/CEST = UTC+1/UTC+2)
+                    // Outlook sends times in UTC, we need to store them in local time
+                    const convertUTCToLocal = (utcString) => {
+                        if (!utcString || !utcString.includes('T')) return utcString;
+                        // Parse as UTC
+                        const utcDate = new Date(utcString.endsWith('Z') ? utcString : utcString + 'Z');
+                        // Get local time components
+                        const year = utcDate.getFullYear();
+                        const month = String(utcDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(utcDate.getDate()).padStart(2, '0');
+                        const hours = String(utcDate.getHours()).padStart(2, '0');
+                        const minutes = String(utcDate.getMinutes()).padStart(2, '0');
+                        const seconds = String(utcDate.getSeconds()).padStart(2, '0');
+                        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+                    };
+
+                    data.start = convertUTCToLocal(data.start);
+                    data.end = convertUTCToLocal(data.end);
+
                     updateFirestore(PROJECT_ID, COLLECTION_NAME, data);
 
                     console.log("🗑️ Nachricht verarbeitet -> Lösche permanent.");
