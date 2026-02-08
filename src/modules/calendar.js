@@ -1408,8 +1408,28 @@ async function saveAppointmentEdit() {
             const isExchange = state.events.exchange.some(e => e.id === id);
 
             if (isExchange) {
+                // Convert local times back to UTC before saving to Firestore
+                const convertLocalToUTC = (localIsoString) => {
+                    if (!localIsoString || !localIsoString.includes('T')) return localIsoString;
+                    const localDate = new Date(localIsoString);
+                    const year = localDate.getUTCFullYear();
+                    const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(localDate.getUTCDate()).padStart(2, '0');
+                    const hours = String(localDate.getUTCHours()).padStart(2, '0');
+                    const minutes = String(localDate.getUTCMinutes()).padStart(2, '0');
+                    const seconds = String(localDate.getUTCSeconds()).padStart(2, '0');
+                    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+                };
+
+                // Convert times to UTC for storage
+                const dataToSave = {
+                    ...data,
+                    start: convertLocalToUTC(data.start),
+                    end: convertLocalToUTC(data.end)
+                };
+
                 // Update Exchange Event in Place
-                await db.collection('exchange_events').doc(id).update(data);
+                await db.collection('exchange_events').doc(id).update(dataToSave);
             } else {
                 // App or Imported Event Update
                 const appDoc = await db.collection('app_events').doc(id).get();
