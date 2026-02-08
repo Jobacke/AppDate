@@ -20,17 +20,19 @@ function processCalendarEmails() {
                     let body = message.getPlainBody() || message.getBody();
                     body = body.replace(/[\r\n\t]/g, " ");
 
-                    if (body.indexOf(SECRET_TOKEN) === -1) {
-                        console.log("⚠️ Kein Secret Token. Skip.");
-                        return;
-                    }
-
                     // Parser Helper
                     const extract = (key) => {
                         const regex = new RegExp(`"${key}"\\s*:\\s*"(.*?)"`);
                         const match = body.match(regex);
                         return match ? match[1] : "";
                     };
+
+                    // Check secret token
+                    const secretToken = extract("secret_token");
+                    if (secretToken !== SECRET_TOKEN) {
+                        console.log("⚠️ Kein gültiger Secret Token. Skip.");
+                        return;
+                    }
 
                     const data = {
                         id: extract("id"), // WICHTIG: ID aus Outlook
