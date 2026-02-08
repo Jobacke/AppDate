@@ -837,9 +837,36 @@ export function subscribeCalendar() {
         .onSnapshot(snapshot => {
             const events = snapshot.docs.map(doc => {
                 const data = doc.data();
-                // Exchange events should already be in local time from the import script
-                // Just use them directly without any conversion
-                return { ...data, id: doc.id, source: 'exchange' };
+                // Exchange events might be in UTC (old) or local time (new)
+                // Convert UTC to local time for display
+                let start = data.start;
+                let end = data.end;
+
+                const convertUTCToLocal = (timeString) => {
+                    if (!timeString || !timeString.includes('T')) return timeString;
+                    // Try to detect if it's UTC by parsing it
+                    // If the time ends with Z or if parsing as UTC gives different result than local, it's UTC
+                    const asLocal = new Date(timeString);
+                    const asUTC = new Date(timeString.endsWith('Z') ? timeString : timeString + 'Z');
+
+                    // If they're different, it was stored as UTC, convert it
+                    if (Math.abs(asLocal - asUTC) > 1000) { // More than 1 second difference
+                        const year = asUTC.getFullYear();
+                        const month = String(asUTC.getMonth() + 1).padStart(2, '0');
+                        const day = String(asUTC.getDate()).padStart(2, '0');
+                        const hours = String(asUTC.getHours()).padStart(2, '0');
+                        const minutes = String(asUTC.getMinutes()).padStart(2, '0');
+                        const seconds = String(asUTC.getSeconds()).padStart(2, '0');
+                        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+                    }
+
+                    return timeString; // Already in local time
+                };
+
+                start = convertUTCToLocal(start);
+                end = convertUTCToLocal(end);
+
+                return { ...data, id: doc.id, start, end, source: 'exchange' };
             });
             state.events.exchange = events;
             updateCalendarView();
