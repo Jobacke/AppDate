@@ -837,13 +837,28 @@ export function subscribeCalendar() {
         .onSnapshot(snapshot => {
             const events = snapshot.docs.map(doc => {
                 const data = doc.data();
-                // FIX: Power Automate sends UTC but often without 'Z' suffix or just raw string.
-                // We assume ALL exchange events are UTC.
+                // FIX: Exchange events come in UTC, convert to local time
+                // Outlook sends times in UTC format (e.g., "2026-02-25T21:30:00")
+                // We need to convert them to local time for display
                 let start = data.start;
                 let end = data.end;
 
-                if (start && !start.endsWith('Z') && start.includes('T')) start += 'Z';
-                if (end && !end.endsWith('Z') && end.includes('T')) end += 'Z';
+                const convertUTCToLocal = (utcString) => {
+                    if (!utcString || !utcString.includes('T')) return utcString;
+                    // Parse as UTC by adding 'Z' if not present
+                    const utcDate = new Date(utcString.endsWith('Z') ? utcString : utcString + 'Z');
+                    // Convert to local ISO string (YYYY-MM-DDTHH:MM:SS)
+                    const year = utcDate.getFullYear();
+                    const month = String(utcDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(utcDate.getDate()).padStart(2, '0');
+                    const hours = String(utcDate.getHours()).padStart(2, '0');
+                    const minutes = String(utcDate.getMinutes()).padStart(2, '0');
+                    const seconds = String(utcDate.getSeconds()).padStart(2, '0');
+                    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+                };
+
+                start = convertUTCToLocal(start);
+                end = convertUTCToLocal(end);
 
                 return { id: doc.id, ...data, start, end, source: 'exchange' };
             });
@@ -1240,37 +1255,10 @@ function editAppointment(id, instanceStart) {
     const dateStr = currentStart.split('T')[0];
     state.editingInstanceDate = dateStr;
 
-    // FIX: Extract time directly from ISO string to avoid timezone issues
-    // Format is: YYYY-MM-DDTHH:MM:SS
+    // FIX: Extract times directly from ISO strings - NO calculations needed
+    // The times are already in local timezone from the UTC conversion when loading
     const startTime = currentStart.includes('T') ? currentStart.split('T')[1].substring(0, 5) : '09:00';
-
-    // Calculate end time using duration from FULL ISO timestamps (not just time)
-    // This handles day-crossing appointments correctly
-    const origStart = evt.start;
-    const origEnd = evt.end;
-
-    // Parse ISO strings as local time (without timezone conversion)
-    const parseLocalISO = (isoString) => {
-        if (!isoString || !isoString.includes('T')) return null;
-        const [datePart, timePart] = isoString.split('T');
-        const [year, month, day] = datePart.split('-').map(Number);
-        const [hours, minutes] = timePart.split(':').map(Number);
-        // Create date in local timezone
-        return new Date(year, month - 1, day, hours, minutes);
-    };
-
-    const origStartDate = parseLocalISO(origStart);
-    const origEndDate = parseLocalISO(origEnd);
-    const durationMs = origEndDate - origStartDate; // Duration in milliseconds
-
-    // Calculate end time by adding duration to current start
-    const currentStartDate = parseLocalISO(currentStart);
-    const calculatedEndDate = new Date(currentStartDate.getTime() + durationMs);
-
-    // Extract time from calculated end date
-    const endHours = calculatedEndDate.getHours();
-    const endMins = calculatedEndDate.getMinutes();
-    const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+    const endTime = evt.end && evt.end.includes('T') ? evt.end.split('T')[1].substring(0, 5) : '17:00';
 
     document.getElementById('editAppointmentModal').classList.remove('hidden');
     document.getElementById('editAppointmentModal').classList.add('flex');
