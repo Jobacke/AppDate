@@ -1356,7 +1356,21 @@ async function saveAppointmentEdit() {
     }
 
     const startIso = `${dateStr}T${startTime}:00`;
-    const endIso = `${dateStr}T${endTime}:00`;
+
+    // FIX: Handle day-crossing appointments
+    // If end time is earlier than start time, it means the appointment crosses midnight
+    let endDateStr = dateStr;
+    if (endTime < startTime) {
+        // Add one day to the end date
+        const startDate = new Date(dateStr);
+        startDate.setDate(startDate.getDate() + 1);
+        const year = startDate.getFullYear();
+        const month = String(startDate.getMonth() + 1).padStart(2, '0');
+        const day = String(startDate.getDate()).padStart(2, '0');
+        endDateStr = `${year}-${month}-${day}`;
+    }
+
+    const endIso = `${endDateStr}T${endTime}:00`;
 
     const data = {
         title,
