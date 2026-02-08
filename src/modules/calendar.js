@@ -860,7 +860,7 @@ export function subscribeCalendar() {
                 start = convertUTCToLocal(start);
                 end = convertUTCToLocal(end);
 
-                return { id: doc.id, ...data, start, end, source: 'exchange' };
+                return { ...data, id: doc.id, start, end, source: 'exchange' };
             });
             state.events.exchange = events;
             updateCalendarView();
