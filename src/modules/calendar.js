@@ -538,7 +538,7 @@ async function handleIcsUpload(input) {
 async function exportOverviewPdf() {
     try {
         const doc = new jsPDF();
-        
+
         // 1. Determine Date Range logic (Duplicated to ensure consistency with view)
         const now = new Date();
         let startLimit, endLimit, dateRangeText;
@@ -567,7 +567,7 @@ async function exportOverviewPdf() {
         } else if (overviewRange === 'custom') {
             startLimit = document.getElementById('ovStart').value;
             endLimit = document.getElementById('ovEnd').value;
-            if(!startLimit || !endLimit) {
+            if (!startLimit || !endLimit) {
                 alert("Bitte erst einen Zeitraum auswählen.");
                 return;
             }
@@ -582,7 +582,7 @@ async function exportOverviewPdf() {
             // Strict App Filter Override
             const isManual = e.source === 'app' || (!e.source && !e.type);
             const isExchangeAppRelevant = (e.source === 'exchange' || e.source === 'imported') && e.isAppRelevant;
-            
+
             if (!isManual && !isExchangeAppRelevant) return false;
 
             // Date Filter
@@ -601,7 +601,7 @@ async function exportOverviewPdf() {
         }
 
         // 3. Build PDF
-        
+
         // -- Header --
         doc.setFontSize(18);
         doc.setTextColor(40, 40, 40);
@@ -617,7 +617,7 @@ async function exportOverviewPdf() {
             const d = new Date(e.start);
             const dateStr = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
             const timeStr = e.isAllDay ? 'Ganztägig' : d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-            
+
             return [
                 dateStr,
                 timeStr,
@@ -659,7 +659,7 @@ async function exportOverviewPdf() {
 
         // -- Footer / Save --
         const pageCount = doc.internal.getNumberOfPages();
-        for(let i = 1; i <= pageCount; i++) {
+        for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
             doc.setFontSize(8);
             doc.setTextColor(150);
@@ -1059,9 +1059,27 @@ function renderCalendar() {
 
     const groups = {};
     relevantEvents.forEach(e => {
-        const date = (e.start || '').split('T')[0];
-        if (!groups[date]) groups[date] = [];
-        groups[date].push(e);
+        const startDate = (e.start || '').split('T')[0];
+        const endDate = (e.end || '').split('T')[0];
+
+        // If multi-day event, add to each day
+        if (startDate !== endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+
+            // Iterate through each day
+            let current = new Date(start);
+            while (current <= end) {
+                const dateStr = current.toISOString().split('T')[0];
+                if (!groups[dateStr]) groups[dateStr] = [];
+                groups[dateStr].push(e);
+                current.setDate(current.getDate() + 1);
+            }
+        } else {
+            // Single-day event
+            if (!groups[startDate]) groups[startDate] = [];
+            groups[startDate].push(e);
+        }
     });
 
     state.groupedEvents = groups;
@@ -1222,20 +1240,41 @@ function editAppointment(id, instanceStart) {
     const dateStr = currentStart.split('T')[0];
     state.editingInstanceDate = dateStr;
 
-    const start = new Date(currentStart);
-    // Use duration to calc end
-    const origStart = new Date(evt.start);
-    const origEnd = new Date(evt.end);
-    const duration = origEnd - origStart;
-    const end = new Date(start.getTime() + duration);
+    // FIX: Extract time directly from ISO string to avoid timezone issues
+    // Format is: YYYY-MM-DDTHH:MM:SS
+    const startTime = currentStart.includes('T') ? currentStart.split('T')[1].substring(0, 5) : '09:00';
+
+    // Calculate end time using duration
+    const origStart = evt.start;
+    const origEnd = evt.end;
+
+    // Extract hours and minutes from ISO strings
+    const getTimeInMinutes = (isoString) => {
+        if (!isoString || !isoString.includes('T')) return 0;
+        const timePart = isoString.split('T')[1];
+        const [hours, minutes] = timePart.split(':').map(Number);
+        return hours * 60 + minutes;
+    };
+
+    const origStartMinutes = getTimeInMinutes(origStart);
+    const origEndMinutes = getTimeInMinutes(origEnd);
+    const durationMinutes = origEndMinutes - origStartMinutes;
+
+    const currentStartMinutes = getTimeInMinutes(currentStart);
+    const endMinutes = currentStartMinutes + durationMinutes;
+
+    // Convert back to HH:MM format
+    const endHours = Math.floor(endMinutes / 60) % 24;
+    const endMins = endMinutes % 60;
+    const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
 
     document.getElementById('editAppointmentModal').classList.remove('hidden');
     document.getElementById('editAppointmentModal').classList.add('flex');
     document.getElementById('apptId').value = id;
     document.getElementById('apptTitle').value = evt.title;
     document.getElementById('apptDate').value = dateStr;
-    document.getElementById('apptStart').value = start.toTimeString().substring(0, 5);
-    document.getElementById('apptEnd').value = end.toTimeString().substring(0, 5);
+    document.getElementById('apptStart').value = startTime;
+    document.getElementById('apptEnd').value = endTime;
     document.getElementById('apptLocation').value = evt.location || '';
     const cleanDesc = (evt.description || '').trim();
     document.getElementById('apptDescription').value = cleanDesc === '{' ? '' : cleanDesc;
