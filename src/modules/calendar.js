@@ -837,13 +837,6 @@ export function subscribeCalendar() {
         .onSnapshot(snapshot => {
             const events = snapshot.docs.map(doc => {
                 const data = doc.data();
-  
-                    return timeString; // Already in local time
-                };
-
-                start = convertUTCToLocal(start);
-                end = convertUTCToLocal(end);
-
                 return { ...data, id: doc.id, source: 'exchange' };
             });
             state.events.exchange = events;
