@@ -13,8 +13,8 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>AppDate</title>
-  <script type="module" crossorigin src="/assets/index-B8XFdKr2.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-C_pwkxTb.css">
+  <script type="module" crossorigin src="/assets/index-C3bvY2wK.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-C18B3Z6n.css">
 </head>
 
 <body class="bg-br-900 text-white min-h-screen font-sans selection:bg-blue-500/30">
@@ -26,8 +26,8 @@
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-xl font-bold flex items-center gap-2 text-white">
           <span class="text-2xl">📅</span>
-          AppDate <span class="text-xs text-blue-200 ml-2 opacity-70 app-version-label">v1.6.8
-            <!-- Build 2026-02-27T11:34 --></span>
+          AppDate <span class="text-xs text-blue-200 ml-2 opacity-70 app-version-label">v1.6.9
+            <!-- Build 2026-02-27T11:51 --></span>
         </h1>
 
         <!-- Status / Sync Indicator -->
@@ -281,21 +281,41 @@
       <div class="flex justify-between mt-6">
         <!-- Standard Delete (for non-recurring) -->
         <button id="btnDeleteAppt" onclick="deleteAppointment()"
-          class="p-3 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 hidden transition-colors">
-          <i class="ph-trash text-xl"></i>
+          class="flex items-center justify-center gap-2 px-4 py-2 bg-red-600/20 text-red-500 border border-red-500/40 rounded-lg hover:bg-red-600/40 hover:text-red-400 transition-colors hidden shadow-sm w-auto">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+          </svg>
+          <span class="text-sm font-semibold">Löschen</span>
         </button>
 
         <!-- Recurring Delete Options (hidden by default) -->
         <div id="btnGroupRecurringDelete" class="hidden flex gap-2">
           <button onclick="deleteCurrentInstance()"
-            class="px-4 py-2 bg-red-500/10 text-red-400 text-sm rounded-lg hover:bg-red-500/20 transition-colors border border-red-500/20"
+            class="flex items-center justify-center gap-2 px-3 py-2 bg-red-600/20 text-red-500 text-sm font-semibold rounded-lg hover:bg-red-600/40 transition-colors border border-red-500/40"
             title="Nur diesen Termin löschen">
-            Nur diesen
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+            <span class="hidden sm:inline">Nur diesen</span>
+            <span class="sm:hidden">Einzeln</span>
           </button>
           <button onclick="deleteSeries()"
-            class="px-4 py-2 bg-red-900/20 text-red-700 text-sm rounded-lg hover:bg-red-900/40 transition-colors border border-red-900/20"
+            class="flex items-center justify-center gap-2 px-3 py-2 bg-red-700/30 text-red-500 text-sm font-semibold rounded-lg hover:bg-red-700/50 transition-colors border border-red-500/60"
             title="Ganze Serie löschen">
-            Ganze Serie
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+            <span class="hidden sm:inline">Ganze Serie</span>
+            <span class="sm:hidden">Alle</span>
           </button>
         </div>
 
