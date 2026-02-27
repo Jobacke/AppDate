@@ -4,7 +4,14 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil(
+        caches.keys().then((keyList) => {
+            return Promise.all(keyList.map((key) => {
+                console.log('[ServiceWorker] Removing old cache', key);
+                return caches.delete(key);
+            }));
+        }).then(() => self.clients.claim())
+    );
 });
 
 self.addEventListener('push', function (event) {
