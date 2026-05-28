@@ -72,6 +72,7 @@ export function hideLockScreen() {
 export function lockApp() {
     // Explicitly clear session flag
     sessionStorage.removeItem('APP_UNLOCKED');
+    sessionStorage.removeItem('APP_FILTER_MODE');
 
     // Soft Lock: We do NOT signOut. We just reload.
     // This allows FaceID to work (because Firebase session is still active in background).

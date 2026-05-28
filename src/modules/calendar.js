@@ -3,7 +3,7 @@ import { db, firebase } from '../config.js';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const APP_VERSION = 'v1.6.3';
+const APP_VERSION = 'v1.6.6';
 
 export function initCalendar() {
     console.log("AppDate Version:", APP_VERSION);

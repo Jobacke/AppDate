@@ -19,4 +19,5 @@ export const auth = firebase.auth();
 export const db = firebase.firestore();
 export const SHARED_USER_EMAIL = 'appdate-secured@app.local';
 export const PIN_SALT = 'AppDate_Sec_2024';
+export const APP_ONLY_PIN = '4330'; // PIN der nur die App-Termine anzeigt
 export { firebase };

@@ -1,21 +1,45 @@
-import { auth } from '../config.js';
+import { auth, APP_ONLY_PIN } from '../config.js';
 import { state } from '../store.js';
 import { subscribeCalendar, unsubscribeCalendar } from './calendar.js';
 import { showLockScreen, hideLockScreen } from './security.js';
 
 // Helper to centrally manage "Unlocked" state
-function finalizeUnlock() {
+function finalizeUnlock(filterMode = null) {
     const app = document.getElementById('app');
 
     // 1. Mark session as unlocked
     sessionStorage.setItem('APP_UNLOCKED', 'true');
 
+    // Handle filter mode persistence
+    if (filterMode) {
+        sessionStorage.setItem('APP_FILTER_MODE', filterMode);
+    } else {
+        // Retrieve or Calculate Default based on User
+        const stored = sessionStorage.getItem('APP_FILTER_MODE');
+        if (stored) {
+            filterMode = stored;
+        } else {
+            // Check User for Special PIN
+            const user = auth.currentUser;
+            if (user && user.email && user.email.toLowerCase().includes(`user-${APP_ONLY_PIN}@`)) {
+                filterMode = 'manual'; // 'manual' corresponds to 'App' filter logic in calendar.js
+            } else {
+                filterMode = 'all';
+            }
+            sessionStorage.setItem('APP_FILTER_MODE', filterMode);
+        }
+    }
+
     // 2. UI Updates
     hideLockScreen();
     if (app) app.classList.remove('hidden');
 
-    // 3. Load Data
+    // 3. Load Data & Apply Filter
     subscribeCalendar();
+
+    if (window.setCalendarFilter) {
+        window.setCalendarFilter(filterMode);
+    }
 }
 window.finalizeUnlock = finalizeUnlock;
 

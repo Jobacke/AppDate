@@ -1,5 +1,6 @@
 function processCalendarEmails() {
-    const SEARCH_QUERY = 'subject:AppDate is:unread in:inbox -in:trash -in:drafts';
+    // Suche so einfach wie möglich halten, Filterung passiert im Code
+    const SEARCH_QUERY = 'subject:AppDate is:unread';
     const SECRET_TOKEN = 'AppDate'; // Muss mit Flow übereinstimmen
 
     // Konfiguration für Firestore
@@ -13,9 +14,18 @@ function processCalendarEmails() {
         const messages = thread.getMessages();
         messages.forEach(message => {
             try {
-                if (message.isUnread()) {
+                // Prüfe auf Nachrichtenebene, da Suchanfragen bei Gmail immer ganze Threads zurückgeben
+                if (message.isUnread() && !message.isInTrash()) {
                     console.log("------------------------------------------");
-                    console.log("Verarbeite: " + message.getSubject());
+                    const subject = message.getSubject();
+                    console.log("Verarbeite: " + subject);
+
+                    // Ignoriere Google Fehler-Mails direkt hier im Code
+                    if (subject.includes("Summary of failures")) {
+                        console.log("⚠️ Fehler-Benachrichtigung von Google erkannt. Ab in den Papierkorb.");
+                        message.moveToTrash();
+                        return;
+                    }
 
                     let body = message.getPlainBody() || message.getBody();
                     body = body.replace(/[\r\n\t]/g, " ");
@@ -31,6 +41,7 @@ function processCalendarEmails() {
                     const secretToken = extract("secret_token");
                     if (secretToken !== SECRET_TOKEN) {
                         console.log("⚠️ Kein gültiger Secret Token. Skip.");
+                        message.moveToTrash(); // In den Papierkorb verschieben, damit sie beim nächsten Lauf nicht mehr gefunden wird
                         return;
                     }
 
@@ -96,7 +107,7 @@ function processCalendarEmails() {
                         console.log("Fallback: Verschiebe in Papierkorb.");
                         message.moveToTrash();
                     }
-                }
+                } // Ende von if (message.isUnread() && !message.isInTrash())
             } catch (err) {
                 console.error("❌ Kritischer Fehler beim Verarbeiten einer Nachricht: " + err.message);
             }
