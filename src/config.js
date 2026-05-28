@@ -3,7 +3,7 @@ import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCwJH2l1LLNiALeml1QsRTABDJq1Lnh1eQ",
+    apiKey: "AIzaSyBM2HeYYcBI1uE2bI2k2HtAhK8ki-iXvog",
     authDomain: "appdate-backend.firebaseapp.com",
     projectId: "appdate-backend",
     storageBucket: "appdate-backend.firebasestorage.app",
